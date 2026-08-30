@@ -1,0 +1,40 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>harness</title>
+<style>
+:root{--primary-text-color:#fff;--secondary-text-color:#a9a3d0;--card-background-color:#160b33;--ha-card-background:#160b33;--primary-color:#e040fb;--divider-color:#2e1f5e;--text-primary-color:#fff;--error-color:#ff5252;--success-color:#69f0ae;}
+body{background:#0d0524;font-family:Roboto,system-ui,sans-serif;padding:24px;margin:0}
+#wrap{width:420px}
+</style></head><body>
+<div id="wrap"></div>
+<script type="module">
+class HaCard extends HTMLElement{connectedCallback(){this.style.display='block';this.style.background='var(--ha-card-background)';this.style.borderRadius='16px';}}
+customElements.define('ha-card',HaCard);
+class HaIcon extends HTMLElement{set icon(v){this.textContent='⚡';this.style.fontSize='30px';this.style.lineHeight='1';}}
+customElements.define('ha-icon',HaIcon);
+
+const DEVICES=[['sensor.heat_pump','Heat pump',0.34],['sensor.ev','EV charger',0.22],['sensor.oven','Oven',0.09],['sensor.washer','Washing machine',0.06],['sensor.fridge','Fridge',0.05]];
+const prefs={energy_sources:[{type:'grid',flow_from:[{stat_energy_from:'sensor.grid_in'}],flow_to:[{stat_energy_to:'sensor.grid_out'}]}],device_consumption:DEVICES.map(d=>({stat_consumption:d[0],name:d[1]}))};
+function seeded(i){return (Math.sin(i*12.9898)*43758.5453)%1;}
+const hass={locale:{language:'en-GB'},async callWS(msg){
+  if(msg.type==='energy/get_prefs')return prefs;
+  const out={};const s=new Date(msg.start_time).getTime(),e=new Date(msg.end_time).getTime();
+  const step=msg.period==='hour'?3600e3:msg.period==='day'?86400e3:2629800e3;
+  const now=Date.now();
+  for(const id of msg.statistic_ids){out[id]=[];let k=0;
+    for(let t=s;t<e;t+=step,k++){
+      if(t>now)break;
+      const dow=new Date(t).getDay();
+      let base=step/3600e3*1.4*(dow===0?0.06:1);
+      const dev=DEVICES.find(d=>d[0]===id);
+      const share=dev?dev[2]:(id==='sensor.grid_in'?1:0);
+      const jitter=0.85+Math.abs(seeded(k+id.length))*0.3;
+      out[id].push({start:t,end:t+step,change:+(base*share*jitter).toFixed(3)});
+    }}
+  return out;}};
+await import('./energy-breakdown-card.js');
+const card=document.createElement('energy-breakdown-card');
+card.setConfig({type:'custom:energy-breakdown-card',icon:'mdi:lightning-bolt',label:'Used',default_period:'week',show_comparison:true,show_legend:true});
+card.hass=hass;
+document.getElementById('wrap').appendChild(card);
+window.__card=card;
+</script></body></html>

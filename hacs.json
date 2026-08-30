@@ -1,0 +1,6 @@
+{
+  "name": "Energy Breakdown Card",
+  "render_readme": true,
+  "filename": "energy-breakdown-card.js",
+  "homeassistant": "2024.8.0"
+}
