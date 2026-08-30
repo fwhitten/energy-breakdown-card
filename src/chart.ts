@@ -30,7 +30,7 @@ export function renderChart(data: ChartData, opts: ChartOptions): TemplateResult
   const max = niceMax(Math.max(...data.totals, 0));
   const slot = plotW / Math.max(1, count);
   const barWidth = Math.max(2, slot * 0.62);
-  const radius = opts.rounded ? Math.min(barWidth / 2, 14) : 0;
+  const radius = opts.rounded ? Math.min(barWidth / 2, 4) : 0;
   const stride = labelStride(count);
 
   const y = (v: number) => baseline - (v / max) * plotH;

@@ -1,7 +1,8 @@
 import { LitElement, css, html, nothing, type TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { ALL_PERIODS, COLOR_SCHEMES, EDITOR_NAME, OTHER_COLOR, PERIOD_LABEL } from "./const";
-import { fetchPrefs, paletteFor, topLevelDevices } from "./energy";
+import { ALL_PERIODS, EDITOR_NAME, PERIOD_LABEL } from "./const";
+import { fetchPrefs, topLevelDevices } from "./energy";
+import { paletteFor } from "./theme";
 import type {
   DeviceConsumption,
   DeviceOverride,
@@ -11,7 +12,6 @@ import type {
 
 const LABELS: Record<string, string> = {
   icon: "Icon",
-  label: "Caption",
   default_period: "Default time period",
   periods: "Selectable time periods",
   total_mode: "Consumption figure",
@@ -20,7 +20,6 @@ const LABELS: Record<string, string> = {
   show_legend: "Show legend",
   show_other: 'Show "Other" remainder',
   other_name: '"Other" label',
-  color_scheme: "Colour scheme",
   max_devices: "Maximum devices shown",
   chart_height: "Chart height (px)",
   rounded_bars: "Rounded bars",
@@ -28,14 +27,7 @@ const LABELS: Record<string, string> = {
 };
 
 const SCHEMA = [
-  {
-    type: "grid",
-    name: "",
-    schema: [
-      { name: "icon", selector: { icon: {} } },
-      { name: "label", selector: { text: {} } }
-    ]
-  },
+  { name: "icon", selector: { icon: {} } },
   {
     name: "periods",
     selector: {
@@ -102,18 +94,6 @@ const SCHEMA = [
     name: "",
     schema: [
       {
-        name: "color_scheme",
-        selector: {
-          select: {
-            mode: "dropdown",
-            options: Object.keys(COLOR_SCHEMES).map((k) => ({
-              value: k,
-              label: k.charAt(0).toUpperCase() + k.slice(1)
-            }))
-          }
-        }
-      },
-      {
         name: "first_day_of_week",
         selector: {
           select: {
@@ -177,7 +157,6 @@ export class EnergyBreakdownCardEditor extends LitElement {
       rounded_bars: true,
       comparison_mode: "like_for_like",
       total_mode: "grid",
-      color_scheme: "vibrant",
       first_day_of_week: "auto",
       max_devices: 8,
       chart_height: 200,
@@ -254,7 +233,7 @@ export class EnergyBreakdownCardEditor extends LitElement {
   }
 
   private _renderDevices(): TemplateResult {
-    const palette = paletteFor(this._data.color_scheme);
+    const palette = paletteFor(this, this._devices.length);
     return html`
       <div class="devices">
         <h4>Devices</h4>
@@ -268,7 +247,7 @@ export class EnergyBreakdownCardEditor extends LitElement {
                   Rename, recolour or hide any device from the Energy dashboard. Leave a name blank to
                   use the Energy dashboard's own name.
                 </div>
-                ${this._devices.map((device, index) => this._renderDevice(device, index, palette))}`}
+                ${this._devices.map((device, index) => this._renderDevice(device, index, palette.series))}`}
         ${this._data.show_other !== false ? this._renderOtherRow() : nothing}
       </div>
     `;
@@ -282,7 +261,7 @@ export class EnergyBreakdownCardEditor extends LitElement {
         <input
           class="color"
           type="color"
-          .value=${config.other_color || OTHER_COLOR}
+          .value=${config.other_color || paletteFor(this, this._devices.length).other}
           title="Colour"
           @change=${(e: Event) =>
             this._updateConfig({ other_color: (e.target as HTMLInputElement).value })}

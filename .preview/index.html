@@ -1,8 +1,8 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><title>harness</title>
 <style>
-:root{--primary-text-color:#fff;--secondary-text-color:#a9a3d0;--card-background-color:#160b33;--ha-card-background:#160b33;--primary-color:#e040fb;--divider-color:#2e1f5e;--text-primary-color:#fff;--error-color:#ff5252;--success-color:#69f0ae;}
-body{background:#0d0524;font-family:Roboto,system-ui,sans-serif;padding:24px;margin:0}
+:root{--primary-text-color:#e1e1e1;--secondary-text-color:#9b9b9b;--card-background-color:#1c1c1c;--ha-card-background:#1c1c1c;--primary-color:#03a9f4;--accent-color:#ff9800;--energy-grid-consumption-color:#488fc2;--divider-color:#333;--text-primary-color:#fff;--error-color:#ff5252;--success-color:#69f0ae;}
+body{background:#111111;font-family:Roboto,system-ui,sans-serif;padding:24px;margin:0}
 #wrap{width:420px}
 </style></head><body>
 <div id="wrap"></div>
@@ -33,7 +33,7 @@ const hass={locale:{language:'en-GB'},async callWS(msg){
   return out;}};
 await import('./energy-breakdown-card.js');
 const card=document.createElement('energy-breakdown-card');
-card.setConfig({type:'custom:energy-breakdown-card',icon:'mdi:lightning-bolt',label:'Used',default_period:'week',show_comparison:true,show_legend:true});
+card.setConfig({type:'custom:energy-breakdown-card',icon:'mdi:lightning-bolt',default_period:'week',show_comparison:true,show_legend:true});
 card.hass=hass;
 document.getElementById('wrap').appendChild(card);
 window.__card=card;

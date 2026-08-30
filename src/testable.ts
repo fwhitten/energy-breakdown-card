@@ -4,3 +4,4 @@ export * from "./energy";
 export * from "./format";
 export * from "./scale";
 export * from "./const";
+export * from "./theme";

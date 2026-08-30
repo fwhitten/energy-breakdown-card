@@ -1,4 +1,4 @@
-import { COLOR_SCHEMES, OTHER_COLOR, OTHER_KEY } from "./const";
+import { OTHER_KEY } from "./const";
 import type { StatsPeriod } from "./periods";
 import type {
   Bucket,
@@ -12,6 +12,7 @@ import type {
   StatisticsResponse,
   TotalMode
 } from "./types";
+import type { Palette } from "./theme";
 
 export async function fetchPrefs(hass: HomeAssistant): Promise<EnergyPrefs> {
   return hass.callWS<EnergyPrefs>({ type: "energy/get_prefs" });
@@ -186,15 +187,12 @@ export function totalForRange(
   );
 }
 
-export function paletteFor(scheme: string | undefined): string[] {
-  return COLOR_SCHEMES[scheme ?? "vibrant"] ?? COLOR_SCHEMES.vibrant;
-}
-
 export interface BuildOptions {
   prefs: EnergyPrefs;
   stats: StatisticsResponse;
   buckets: Bucket[];
   config: EnergyBreakdownCardConfig;
+  palette: Palette;
 }
 
 /**
@@ -202,9 +200,8 @@ export interface BuildOptions {
  * anything beyond `max_devices`, plus consumption no device accounts for, is
  * folded into a single "Other" segment so the stack totals the real figure.
  */
-export function buildChartData({ prefs, stats, buckets, config }: BuildOptions): ChartData {
+export function buildChartData({ prefs, stats, buckets, config, palette }: BuildOptions): ChartData {
   const overrides = new Map((config.devices ?? []).map((d) => [d.stat, d]));
-  const palette = paletteFor(config.color_scheme);
   const mode: TotalMode = config.total_mode ?? "grid";
 
   const devices = topLevelDevices(prefs).filter((d) => !overrides.get(d.stat_consumption)?.hidden);
@@ -215,7 +212,7 @@ export function buildChartData({ prefs, stats, buckets, config }: BuildOptions):
     return {
       key: device.stat_consumption,
       name: override?.name || device.name || device.stat_consumption,
-      color: override?.color || palette[index % palette.length],
+      color: override?.color || palette.series[index % palette.series.length],
       values,
       total: values.reduce((a, b) => a + b, 0)
     };
@@ -242,7 +239,7 @@ export function buildChartData({ prefs, stats, buckets, config }: BuildOptions):
       series.push({
         key: OTHER_KEY,
         name: config.other_name || "Other",
-        color: config.other_color || OTHER_COLOR,
+        color: config.other_color || palette.other,
         values,
         total
       });

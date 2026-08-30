@@ -14,7 +14,6 @@ export interface DeviceOverride {
 export interface EnergyBreakdownCardConfig {
   type: string;
   icon?: string;
-  label?: string;
   periods?: Period[];
   default_period?: Period;
   show_comparison?: boolean;
@@ -24,7 +23,6 @@ export interface EnergyBreakdownCardConfig {
   other_name?: string;
   other_color?: string;
   total_mode?: TotalMode;
-  color_scheme?: string;
   max_devices?: number;
   chart_height?: number;
   rounded_bars?: boolean;

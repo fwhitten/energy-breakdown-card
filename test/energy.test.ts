@@ -11,6 +11,11 @@ import {
   OTHER_KEY
 } from "./lib.mjs";
 
+const palette = {
+  series: ["#111111", "#222222", "#333333", "#444444", "#555555"],
+  other: "#999999"
+};
+
 const NOW = new Date(2026, 7, 26, 23, 0);
 
 function hourly(dayOffsets: number[]) {
@@ -81,7 +86,7 @@ test('"Other" makes the stack add up to the grid total', () => {
     dev_a: hourly([4, 4, 4, 4, 4, 4, 4]),
     dev_b: hourly([2, 2, 2, 2, 2, 2, 2])
   };
-  const data = buildChartData({ prefs, stats, buckets, config: { type: "x" } });
+  const data = buildChartData({ prefs, stats, buckets, palette, config: { type: "x" } });
   const other = data.series.find((s) => s.key === OTHER_KEY);
   assert.ok(other, "expected an Other series");
   assert.deepEqual(other.values, [4, 4, 4, 4, 4, 4, 4]);
@@ -98,7 +103,7 @@ test("devices measuring more than the grid total do not produce a negative Other
     dev_a: hourly([5, 5, 5, 5, 5, 5, 5]),
     dev_b: hourly([0, 0, 0, 0, 0, 0, 0])
   };
-  const data = buildChartData({ prefs, stats, buckets, config: { type: "x" } });
+  const data = buildChartData({ prefs, stats, buckets, palette, config: { type: "x" } });
   const other = data.series.find((s) => s.key === OTHER_KEY);
   assert.equal(other, undefined);
   assert.deepEqual(data.totals, [5, 5, 5, 5, 5, 5, 5]);
@@ -111,13 +116,14 @@ test("series are ordered largest first and hidden devices are dropped", () => {
     dev_a: hourly([1, 1, 1, 1, 1, 1, 1]),
     dev_b: hourly([3, 3, 3, 3, 3, 3, 3])
   };
-  const data = buildChartData({ prefs, stats, buckets, config: { type: "x" } });
+  const data = buildChartData({ prefs, stats, buckets, palette, config: { type: "x" } });
   assert.equal(data.series[0].name, "EV charger");
 
   const hidden = buildChartData({
     prefs,
     stats,
     buckets,
+    palette,
     config: { type: "x", devices: [{ stat: "dev_b", hidden: true }] }
   });
   assert.equal(hidden.series.some((s) => s.name === "EV charger"), false);
@@ -130,7 +136,7 @@ test("devices beyond max_devices are folded into Other", () => {
     dev_a: hourly([3, 3, 3, 3, 3, 3, 3]),
     dev_b: hourly([2, 2, 2, 2, 2, 2, 2])
   };
-  const data = buildChartData({ prefs, stats, buckets, config: { type: "x", max_devices: 1 } });
+  const data = buildChartData({ prefs, stats, buckets, palette, config: { type: "x", max_devices: 1 } });
   assert.equal(data.series.length, 2);
   assert.equal(data.series[0].name, "Heat pump");
   const other = data.series[1];
@@ -145,6 +151,7 @@ test("name and colour overrides are applied", () => {
     prefs,
     stats,
     buckets,
+    palette,
     config: { type: "x", devices: [{ stat: "dev_a", name: "Boiler", color: "#123456" }] }
   });
   assert.equal(data.series[0].name, "Boiler");
@@ -159,6 +166,6 @@ test("home consumption mode nets off export and adds solar", () => {
     solar: hourly([6, 0, 0, 0, 0, 0, 0]),
     dev_a: hourly([1, 0, 0, 0, 0, 0, 0])
   };
-  const data = buildChartData({ prefs, stats, buckets, config: { type: "x", total_mode: "home" } });
+  const data = buildChartData({ prefs, stats, buckets, palette, config: { type: "x", total_mode: "home" } });
   assert.equal(data.totals[0], 13);
 });

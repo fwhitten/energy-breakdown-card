@@ -3,6 +3,8 @@
 [![hacs][hacs-badge]][hacs-url]
 [![validate][validate-badge]][validate-url]
 
+[![Open your Home Assistant instance and open this repository inside the Home Assistant Community Store.][hacs-repo-badge]][hacs-repo-url]
+
 A Lovelace card for Home Assistant that shows where your energy actually goes. It reads your
 **Energy dashboard** configuration directly — no entity wiring — and draws a stacked bar chart
 broken down by device, with a headline total and a comparison against the previous period.
@@ -24,6 +26,7 @@ below the selected period:
   so the bars always add up to your real total
 - Headline consumption for the current period with an optional `+/-%` against the previous one
 - Fully configurable in the **visual editor**, including per-device names, colours and visibility
+- **Colours come from your theme**, not from the card — see [Colours](#colours)
 - Sizes properly in **sections** dashboards (drag to resize; declares sensible grid defaults)
 - Hover or tap any bar for a full breakdown
 - No external chart library — one self-contained file, themed from your Home Assistant theme
@@ -31,6 +34,8 @@ below the selected period:
 ## Installation
 
 ### HACS (recommended)
+
+Click the button above, or add it by hand:
 
 1. In HACS, open the three-dot menu → **Custom repositories**.
 2. Add `https://github.com/fwhitten/energy-breakdown-card` with category **Dashboard**.
@@ -56,7 +61,6 @@ Add the card from the dashboard card picker and configure it visually. The YAML 
 ```yaml
 type: custom:energy-breakdown-card
 icon: mdi:lightning-bolt
-label: Used
 default_period: week
 periods:
   - day
@@ -79,8 +83,7 @@ devices:
 
 | Option | Type | Default | Description |
 | ------ | ---- | ------- | ----------- |
-| `icon` | string | `mdi:lightning-bolt` | Icon shown top left. |
-| `label` | string | — | Small caption under the headline figure, e.g. `Used`. |
+| `icon` | string | `mdi:lightning-bolt` | Any Home Assistant icon, shown top left. |
 | `periods` | list | all four | Which periods the button cycles through. |
 | `default_period` | string | first enabled | Period shown when the card loads. |
 | `total_mode` | string | `grid` | `grid` (import only), `home` (grid + solar + battery, net of export), or `devices` (sum of devices). |
@@ -89,8 +92,7 @@ devices:
 | `show_legend` | boolean | `true` | Colour key under the chart. |
 | `show_other` | boolean | `true` | Show the unaccounted-for remainder as its own segment. |
 | `other_name` | string | `Other` | Label for that segment. |
-| `other_color` | string | `#7a7aa0` | Colour for that segment. |
-| `color_scheme` | string | `vibrant` | `vibrant`, `colorblind`, `cool` or `warm`. |
+| `other_color` | string | from theme | Colour for that segment. |
 | `max_devices` | number | `8` | Devices to show individually; the rest fold into **Other**. |
 | `chart_height` | number | `200` | Chart height in pixels. |
 | `rounded_bars` | boolean | `true` | Rounded bar caps. |
@@ -107,6 +109,21 @@ yesterday is misleading. `comparison_mode` controls how that is handled:
 - **`full_previous`** — compares against the whole previous period.
 - **`projected`** — extrapolates the current period to a full period, then compares against the
   whole previous one. Smoother, but it is a forecast.
+
+## Colours
+
+The card ships no palette of its own. Segment colours are worked out from the active Home
+Assistant theme each time it loads, so it changes with your theme rather than fighting it:
+
+1. If your theme defines `--graph-color-1`, `--graph-color-2` and so on, those are used directly.
+2. Otherwise the card takes your theme's `--energy-grid-consumption-color` (falling back to
+   `--accent-color`, then `--primary-color`) and spreads the segments around the colour wheel from
+   it using the golden angle, so neighbouring segments stay distinguishable however many devices
+   you have.
+
+**Other** is always a muted version of the same base, so it reads as "everything else" rather than
+competing with a real device. Any device can be given a fixed colour in the visual editor, which
+overrides all of the above.
 
 ## How the numbers are worked out
 
@@ -135,6 +152,8 @@ out of date with `src/`.
 MIT
 
 [hacs-badge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
+[hacs-repo-badge]: https://my.home-assistant.io/badges/hacs_repository.svg
+[hacs-repo-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=fwhitten&repository=energy-breakdown-card&category=dashboard
 [hacs-url]: https://github.com/hacs/integration
 [validate-badge]: https://github.com/fwhitten/energy-breakdown-card/actions/workflows/validate.yml/badge.svg
 [validate-url]: https://github.com/fwhitten/energy-breakdown-card/actions/workflows/validate.yml

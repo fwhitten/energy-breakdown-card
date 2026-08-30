@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { CARD_NAME, EDITOR_NAME, PERIOD_LABEL, PREVIOUS_LABEL, ALL_PERIODS } from "./const";
 import { CHART_PAD, renderChart } from "./chart";
 import { formatEnergy, formatPercent } from "./format";
+import { paletteFor } from "./theme";
 import {
   buildChartData,
   collectSourceStats,
@@ -60,7 +61,6 @@ export class EnergyBreakdownCard extends LitElement {
     return {
       type: `custom:${CARD_NAME}`,
       icon: "mdi:lightning-bolt",
-      label: "Used",
       periods: ["day", "week", "month", "year"],
       default_period: "week",
       show_comparison: true,
@@ -118,7 +118,10 @@ export class EnergyBreakdownCard extends LitElement {
   }
 
   protected override updated(changed: PropertyValues): void {
-    if (changed.has("hass") && !changed.get("hass") && this.hass) void this._load();
+    if (!changed.has("hass") || !this.hass) return;
+    const previous = changed.get("hass") as HomeAssistant | undefined;
+    // First hass, or a theme change that the palette is derived from.
+    if (!previous || previous.themes !== this.hass.themes) void this._load();
   }
 
   private get _firstDayOfWeek(): 0 | 1 {
@@ -157,7 +160,8 @@ export class EnergyBreakdownCard extends LitElement {
       const stats = await fetchStatistics(hass, ids, start, end, statsPeriod);
       if (token !== this._fetchToken) return;
 
-      const data = buildChartData({ prefs, stats, buckets, config });
+      const palette = paletteFor(this, devices.length);
+      const data = buildChartData({ prefs, stats, buckets, config, palette });
       const total = totalForRange(stats, sources, mode, start, now, deviceIds);
 
       let comparison: number | null = null;
@@ -262,7 +266,6 @@ export class EnergyBreakdownCard extends LitElement {
                   <span class="number">${formatEnergy(this._total, this.hass?.locale?.language)}</span>
                   <span class="unit">kWh</span>
                 </div>
-                ${config.label ? html`<div class="label">${config.label}</div>` : nothing}
                 ${this._renderComparison()}
               </div>
             </div>
@@ -445,20 +448,12 @@ export class EnergyBreakdownCard extends LitElement {
       font-weight: 600;
       color: var(--secondary-text-color);
     }
-    .label {
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-size: 0.85em;
-      font-weight: 600;
-      color: var(--secondary-text-color);
-      margin-top: 2px;
-    }
     .comparison {
       display: flex;
       align-items: baseline;
       gap: 5px;
       font-size: 0.85em;
-      margin-top: 4px;
+      margin-top: 3px;
     }
     .comparison .delta {
       font-weight: 700;
@@ -470,7 +465,8 @@ export class EnergyBreakdownCard extends LitElement {
       color: var(--success-color, #43a047);
     }
     .comparison.flat .delta {
-      color: var(--primary-text-color);
+      /* No change is not news: keep it the same weight as the text beside it. */
+      color: var(--secondary-text-color);
     }
     .comparison .against {
       color: var(--secondary-text-color);
