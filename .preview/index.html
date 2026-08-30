@@ -1,49 +1,52 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><title>harness</title>
 <style>
-:root{--primary-text-color:#e1e1e1;--secondary-text-color:#9b9b9b;--card-background-color:#1c1c1c;--ha-card-background:#1c1c1c;--primary-color:#03a9f4;--accent-color:#ff9800;--energy-grid-consumption-color:#488fc2;--divider-color:#333;--text-primary-color:#fff;--error-color:#f44336;--success-color:#4caf50;--warning-color:#ffa726;}
-body{background:#111;font-family:Roboto,system-ui,sans-serif;padding:16px;margin:0;display:flex;gap:16px;align-items:flex-start}
-.slot{width:340px}
-.h240{height:240px}.h420{height:420px}
-.slot>*{height:100%}
+:root{--primary-text-color:#e1e1e1;--secondary-text-color:#9b9b9b;--card-background-color:#1c1c1c;--ha-card-background:#1c1c1c;--secondary-background-color:#282828;--primary-color:#03a9f4;--accent-color:#ff9800;--energy-grid-consumption-color:#488fc2;--divider-color:#444;--text-primary-color:#fff;--error-color:#f44336;--success-color:#4caf50;--warning-color:#ffa726;}
 ha-card{background:var(--ha-card-background);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+body{background:#111;font-family:Roboto,system-ui,sans-serif;padding:16px;margin:0;display:flex;gap:16px;align-items:flex-start;color:var(--primary-text-color)}
+.slot{width:300px}
+.h240{height:240px}.h340{height:340px}.h480{height:480px}
+.slot>*{height:100%}
 h5{color:#888;font:600 11px/1 sans-serif;margin:0 0 6px}
+#ed{width:380px;background:#1c1c1c;padding:12px;border-radius:12px}
 </style></head><body>
-<div><h5>4 rows (240px)</h5><div class="slot h240" id="a"></div></div>
-<div><h5>7 rows (420px)</h5><div class="slot h420" id="b"></div></div>
-<div><h5>masonry (auto)</h5><div class="slot" id="c"></div></div>
+<div><h5>4 rows (240)</h5><div class="slot h240" id="a"></div>
+     <h5 style="margin-top:12px">6 rows (340)</h5><div class="slot h340" id="b"></div></div>
+<div><h5>9 rows (480) — grid source missing</h5><div class="slot h480" id="c"></div></div>
+<div><h5>editor</h5><div id="ed"></div></div>
 <script type="module">
-class HaCard extends HTMLElement{}
-customElements.define('ha-card',HaCard);
-class HaIcon extends HTMLElement{set icon(v){this.textContent='⚡';this.style.fontSize='30px';this.style.lineHeight='1';}}
-customElements.define('ha-icon',HaIcon);
+customElements.define('ha-card',class extends HTMLElement{});
+customElements.define('ha-icon',class extends HTMLElement{set icon(v){this.textContent='⚡';this.style.fontSize='var(--ebc-icon-size,1.6em)';this.style.lineHeight='1';}});
+customElements.define('ha-form',class extends HTMLElement{connectedCallback(){this.style.display='block';this.style.padding='8px';this.style.color='#666';this.textContent='[ha-form fields]';}});
+customElements.define('ha-icon-button',class extends HTMLElement{connectedCallback(){this.style.cursor='pointer';this.textContent='👁';}set path(v){}set label(v){}});
 
-// Small devices against a much larger grid total, and a grid statistic that
-// only carries a running sum - the shape that produced 0.00 kWh before.
 const DEVICES=[['sensor.lights','Lights',0.036],['sensor.tv','TV',0.005],['sensor.ev','EV Charger',0]];
-const prefs={energy_sources:[{type:'grid',flow_from:[{stat_energy_from:'sensor.grid_in'}],flow_to:[]}],device_consumption:DEVICES.map(d=>({stat_consumption:d[0],name:d[1]}))};
+const mk=(grid)=>({energy_sources:grid?[{type:'grid',flow_from:[{stat_energy_from:'sensor.grid_in'}]}]:[{type:'solar',stat_energy_from:'sensor.solar'}],device_consumption:DEVICES.map(d=>({stat_consumption:d[0],name:d[1]}))});
 function seeded(i){return Math.abs(Math.sin(i*12.9898)*43758.5453%1);}
-const hass={locale:{language:'en-GB'},themes:{},async callWS(msg){
-  if(msg.type==='energy/get_prefs')return prefs;
+function makeHass(grid){return {locale:{language:'en-GB'},themes:{},async callWS(msg){
+  if(msg.type==='energy/get_prefs')return mk(grid);
   const out={};const s=new Date(msg.start_time).getTime(),e=new Date(msg.end_time).getTime();
-  const step=msg.period==='hour'?3600e3:msg.period==='day'?86400e3:2629800e3;
-  const now=Date.now();
-  for(const id of msg.statistic_ids){
-    out[id]=[];let k=0;let running=1000;
-    for(let t=s;t<e;t+=step,k++){
-      if(t>now)break;
+  const step=msg.period==='hour'?3600e3:msg.period==='day'?86400e3:2629800e3;const now=Date.now();
+  for(const id of msg.statistic_ids){out[id]=[];let k=0;let running=1000;
+    for(let t=s;t<e;t+=step,k++){ if(t>now)break;
       const dow=new Date(t).getDay();
       const base=step/3600e3*1.1*(dow===0?0.08:1)*(0.85+seeded(k)*0.3);
       if(id==='sensor.grid_in'){running+=base;out[id].push({start:t,end:t+step,change:null,sum:+running.toFixed(3)});}
       else{const dev=DEVICES.find(d=>d[0]===id);out[id].push({start:t,end:t+step,change:+(base*(dev?dev[2]:0)).toFixed(4)});}
     }}
-  return out;}};
+  return out;}};}
+
 await import('./energy-breakdown-card.js');
-for(const slot of ['a','b','c']){
+for(const [slot,grid] of [['a',true],['b',true],['c',false]]){
   const card=document.createElement('energy-breakdown-card');
   card.setConfig({type:'custom:energy-breakdown-card',icon:'mdi:lightning-bolt',default_period:'week'});
-  card.hass=hass;
+  card.hass=makeHass(grid);
   document.getElementById(slot).appendChild(card);
   window['__'+slot]=card;
 }
+const ed=await customElements.get('energy-breakdown-card').getConfigElement();
+ed.hass=makeHass(true);
+ed.setConfig({type:'custom:energy-breakdown-card',icon:'mdi:lightning-bolt'});
+document.getElementById('ed').appendChild(ed);
+window.__ed=ed;
 </script></body></html>

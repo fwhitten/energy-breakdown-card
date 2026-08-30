@@ -10,6 +10,7 @@ import {
   topLevelDevices,
   anchorStart,
   normaliseChanges,
+  sourceTypes,
   OTHER_KEY
 } from "./lib.mjs";
 
@@ -215,4 +216,37 @@ test("a sum-only source still produces a total and an Other segment", () => {
   assert.ok(other, "expected an Other series");
   assert.deepEqual(other.values, [6, 6, 6, 6, 6, 6, 6]);
   assert.deepEqual(data.totals, [10, 10, 10, 10, 10, 10, 10]);
+});
+
+test("a grid source carrying the statistic directly is still found", () => {
+  const direct = {
+    energy_sources: [{ type: "grid", stat_energy_from: "grid_direct" }],
+    device_consumption: []
+  };
+  assert.deepEqual(collectSourceStats(direct).gridFrom, ["grid_direct"]);
+});
+
+test("flow lists take precedence over a statistic on the source", () => {
+  const both = {
+    energy_sources: [
+      { type: "grid", stat_energy_from: "ignored", flow_from: [{ stat_energy_from: "grid_in" }] }
+    ],
+    device_consumption: []
+  };
+  assert.deepEqual(collectSourceStats(both).gridFrom, ["grid_in"]);
+});
+
+test("malformed flow entries are skipped rather than throwing", () => {
+  const messy = {
+    energy_sources: [
+      { type: "grid", flow_from: [null, {}, { stat_energy_from: "grid_in" }], flow_to: [null] }
+    ],
+    device_consumption: []
+  } as never;
+  assert.deepEqual(collectSourceStats(messy).gridFrom, ["grid_in"]);
+});
+
+test("sourceTypes lists what the configuration actually contains", () => {
+  assert.deepEqual(sourceTypes(prefs), ["grid", "solar"]);
+  assert.deepEqual(sourceTypes({ energy_sources: [], device_consumption: [] }), []);
 });

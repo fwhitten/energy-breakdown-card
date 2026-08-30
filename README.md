@@ -125,6 +125,16 @@ card_mod:
     :host { --ebc-min-height: 320px; }
 ```
 
+### Appearance variables
+
+| Variable | Default | Effect |
+| -------- | ------- | ------ |
+| `--ebc-min-height` | `240px` | Height floor when the layout gives the card none. |
+| `--ebc-icon-size` | `1.6em` | Size of the icon beside the total. |
+| `--ebc-icon-color` | `--primary-text-color` | Icon colour. |
+| `--ebc-period-background` | 9% text colour | Period button background. |
+| `--ebc-period-color` | `--primary-text-color` | Period button text. |
+
 ## Colours
 
 The card ships no palette of its own. Segment colours are worked out from the active Home
@@ -153,6 +163,19 @@ externally imported statistics) have their per-bucket change derived from it.
 
 Devices that are sub-metered off another device (Home Assistant's *"included in"* setting) are
 excluded from the stack, so nothing is counted twice.
+
+## Troubleshooting
+
+**"Showing the device total only"** — the card could not get a figure from your grid source, so it
+is showing the sum of your individual devices instead. The message says which case you are in:
+
+- *no grid consumption source was found* — the Energy dashboard has no grid source the card can
+  read. The configured source types are listed in the message.
+- *no data came back for `<statistic>`* — the source exists but returned no statistics for the
+  period. Check that statistic still records data under **Developer tools → Statistics**.
+
+In this state the **Other** segment is not shown, because there is no total to subtract devices
+from.
 
 ## Development
 

@@ -257,13 +257,17 @@ export class EnergyBreakdownCardEditor extends LitElement {
           @change=${(e: Event) =>
             this._updateConfig({ other_color: (e.target as HTMLInputElement).value })}
         />
-        <ha-textfield
-          class="name"
-          label="Other"
-          .value=${config.other_name ?? ""}
-          @change=${(e: Event) =>
-            this._updateConfig({ other_name: (e.target as HTMLInputElement).value || undefined })}
-        ></ha-textfield>
+        <div class="field">
+          <span class="dev-name">Other</span>
+          <input
+            class="rename"
+            type="text"
+            placeholder="Other"
+            .value=${config.other_name ?? ""}
+            @change=${(e: Event) =>
+              this._updateConfig({ other_name: (e.target as HTMLInputElement).value || undefined })}
+          />
+        </div>
         <span class="spacer"></span>
       </div>
     `;
@@ -283,13 +287,17 @@ export class EnergyBreakdownCardEditor extends LitElement {
           @change=${(e: Event) =>
             this._updateDevice(stat, { color: (e.target as HTMLInputElement).value })}
         />
-        <ha-textfield
-          class="name"
-          .label=${device.name || stat}
-          .value=${override?.name ?? ""}
-          @change=${(e: Event) =>
-            this._updateDevice(stat, { name: (e.target as HTMLInputElement).value || undefined })}
-        ></ha-textfield>
+        <div class="field">
+          <span class="dev-name" title=${stat}>${device.name || stat}</span>
+          <input
+            class="rename"
+            type="text"
+            placeholder=${device.name || stat}
+            .value=${override?.name ?? ""}
+            @change=${(e: Event) =>
+              this._updateDevice(stat, { name: (e.target as HTMLInputElement).value || undefined })}
+          />
+        </div>
         <ha-icon-button
           .path=${override?.hidden ? MDI_EYE_OFF : MDI_EYE}
           .label=${override?.hidden ? "Show device" : "Hide device"}
@@ -320,22 +328,49 @@ export class EnergyBreakdownCardEditor extends LitElement {
     .device {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 4px;
+      gap: 10px;
+      margin-bottom: 10px;
     }
-    .device.hidden .name {
+    .device.hidden .field {
       opacity: 0.5;
     }
-    .name {
+    .field {
       flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .dev-name {
+      font-size: 0.85em;
+      color: var(--secondary-text-color);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    /* Native inputs, so the rows do not depend on which Home Assistant
+       form components happen to be loaded in the editor. */
+    input.rename {
+      width: 100%;
+      box-sizing: border-box;
+      font: inherit;
+      padding: 7px 9px;
+      border-radius: 6px;
+      border: 1px solid var(--divider-color, #444);
+      background: var(--secondary-background-color, rgba(127, 127, 127, 0.12));
+      color: var(--primary-text-color);
+    }
+    input.rename:focus {
+      outline: none;
+      border-color: var(--primary-color);
     }
     .spacer {
       inline-size: 48px;
       flex: 0 0 auto;
     }
     input.color {
-      inline-size: 34px;
-      block-size: 34px;
+      inline-size: 36px;
+      block-size: 36px;
       padding: 0;
       border: none;
       background: none;

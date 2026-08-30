@@ -10,6 +10,8 @@ import {
   fetchPrefs,
   fetchStatistics,
   statIdsForTotal,
+  sourceTypes,
+  sumRange,
   topLevelDevices,
   totalForRange
 } from "./energy";
@@ -49,6 +51,8 @@ export class EnergyBreakdownCard extends LitElement {
   @state() private _height = 0;
   @state() private _hover: number | null = null;
   @state() private _totalStatIds: string[] = [];
+  @state() private _sourceTypes: string[] = [];
+  @state() private _usedDeviceFallback = false;
 
   private _resizeObserver?: ResizeObserver;
   private _timer?: number;
@@ -162,13 +166,20 @@ export class EnergyBreakdownCard extends LitElement {
       }
 
       this._totalStatIds = totalIds;
+      this._sourceTypes = sourceTypes(prefs);
       const ids = Array.from(new Set([...deviceIds, ...totalIds]));
       const stats = await fetchStatistics(hass, ids, start, end, statsPeriod);
       if (token !== this._fetchToken) return;
 
       const palette = paletteFor(this, devices.length);
       const data = buildChartData({ prefs, stats, buckets, config, palette });
-      const total = totalForRange(stats, sources, mode, start, now, deviceIds);
+      let total = totalForRange(stats, sources, mode, start, now, deviceIds);
+
+      // If the configured source yields nothing but the devices do, show the
+      // devices' total rather than a bare zero. The notice explains why.
+      const deviceTotal = sumRange(stats, deviceIds, start, now);
+      this._usedDeviceFallback = total <= 0 && deviceTotal > 0;
+      if (this._usedDeviceFallback) total = deviceTotal;
 
       let comparison: number | null = null;
       if (config.show_comparison !== false) {
@@ -308,14 +319,14 @@ export class EnergyBreakdownCard extends LitElement {
    * configured source statistic is not the one holding the data.
    */
   private _renderNotice(): TemplateResult | typeof nothing {
-    if (this._error || !this._data || !this._totalStatIds.length) return nothing;
-    const devices = this._data.series.reduce((sum, s) => sum + s.total, 0);
-    if (this._total > 0 || devices <= 0) return nothing;
+    if (this._error || !this._data || !this._usedDeviceFallback) return nothing;
+    const detail = this._totalStatIds.length
+      ? html`no data came back for <code>${this._totalStatIds.join(", ")}</code>`
+      : html`no grid consumption source was found${this._sourceTypes.length
+          ? html` (configured sources: ${this._sourceTypes.join(", ")})`
+          : nothing}`;
     return html`
-      <div class="notice">
-        No statistics returned for ${this._totalStatIds.join(", ")} — check the source configured in
-        the Energy dashboard.
-      </div>
+      <div class="notice">Showing the device total only — ${detail}.</div>
     `;
   }
 
@@ -420,11 +431,16 @@ export class EnergyBreakdownCard extends LitElement {
     :host {
       display: flex;
       flex-direction: column;
+      box-sizing: border-box;
+      /* The sections grid sizes the element around us, so take its height and
+         let the flex chain below distribute it. */
+      height: 100%;
       /* Floor for layouts that do not give the card a height of its own. */
       min-height: var(--ebc-min-height, 240px);
       --ebc-empty-bar: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
       --ebc-grid: color-mix(in srgb, var(--secondary-text-color) 45%, transparent);
       --ebc-icon-color: var(--primary-text-color);
+      --ebc-icon-size: 1.6em;
       --ebc-period-background: color-mix(in srgb, var(--primary-text-color) 9%, transparent);
       --ebc-period-color: var(--primary-text-color);
     }
@@ -458,10 +474,13 @@ export class EnergyBreakdownCard extends LitElement {
       min-width: 0;
     }
     .icon {
-      --mdc-icon-size: 32px;
+      --mdc-icon-size: var(--ebc-icon-size);
+      width: var(--ebc-icon-size);
+      height: var(--ebc-icon-size);
       color: var(--ebc-icon-color);
       flex: 0 0 auto;
-      margin-top: 2px;
+      /* Optically centred on the headline figure beside it. */
+      margin-top: 0.22em;
     }
     .figures {
       min-width: 0;
@@ -536,8 +555,14 @@ export class EnergyBreakdownCard extends LitElement {
       display: block;
     }
     .notice {
-      font-size: 0.8em;
+      flex: 0 0 auto;
+      font-size: 0.78em;
+      line-height: 1.3;
       color: var(--warning-color, #ffa726);
+    }
+    .notice code {
+      font-size: 0.95em;
+      word-break: break-all;
     }
     .message {
       color: var(--secondary-text-color);

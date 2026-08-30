@@ -108,8 +108,14 @@ export function collectSourceStats(prefs: EnergyPrefs): SourceStats {
   const out: SourceStats = { gridFrom: [], gridTo: [], solarFrom: [], batteryFrom: [], batteryTo: [] };
   for (const source of prefs.energy_sources ?? []) {
     if (source.type === "grid") {
-      for (const f of source.flow_from ?? []) if (f.stat_energy_from) out.gridFrom.push(f.stat_energy_from);
-      for (const t of source.flow_to ?? []) if (t.stat_energy_to) out.gridTo.push(t.stat_energy_to);
+      const from = source.flow_from ?? [];
+      const to = source.flow_to ?? [];
+      for (const f of from) if (f?.stat_energy_from) out.gridFrom.push(f.stat_energy_from);
+      for (const t of to) if (t?.stat_energy_to) out.gridTo.push(t.stat_energy_to);
+      // Some configurations carry the statistic on the source itself rather
+      // than in a flow list.
+      if (!out.gridFrom.length && source.stat_energy_from) out.gridFrom.push(source.stat_energy_from);
+      if (!out.gridTo.length && source.stat_energy_to) out.gridTo.push(source.stat_energy_to);
     } else if (source.type === "solar") {
       if (source.stat_energy_from) out.solarFrom.push(source.stat_energy_from);
     } else if (source.type === "battery") {
@@ -118,6 +124,11 @@ export function collectSourceStats(prefs: EnergyPrefs): SourceStats {
     }
   }
   return out;
+}
+
+/** Source types present in the configuration, for diagnostics. */
+export function sourceTypes(prefs: EnergyPrefs): string[] {
+  return Array.from(new Set((prefs.energy_sources ?? []).map((s) => s?.type).filter(Boolean)));
 }
 
 export function statIdsForTotal(sources: SourceStats, mode: TotalMode): string[] {
