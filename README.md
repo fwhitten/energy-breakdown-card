@@ -25,7 +25,9 @@ below the selected period:
 - Everything is converted to kWh by the recorder, so devices logging in Wh line up with the rest
 - Stacked per-device breakdown, plus an **Other** segment for consumption no device accounts for,
   so the bars always add up to your real total
-- Headline consumption for the current period with an optional `+/-%` against the previous one
+- Headline consumption for the period with an optional `+/-%` against the previous one
+- Step back and forward through earlier periods with the arrows beside the period button
+- Exclude a device from the total so it can be broken out onto a card of its own
 - Fully configurable in the **visual editor**, including per-device names, colours and visibility
 - **Colours come from your theme**, not from the card — see [Colours](#colours)
 - Sizes properly in **sections** dashboards (drag to resize; declares sensible grid defaults)
@@ -97,7 +99,19 @@ devices:
 | `max_devices` | number | `8` | Devices to show individually; the rest fold into **Other**. |
 | `rounded_bars` | boolean | `true` | Rounded bar caps. |
 | `first_day_of_week` | string | `auto` | `auto`, `monday` or `sunday`. |
-| `devices` | list | — | Per-device `stat` plus optional `name`, `color`, `hidden`. |
+| `devices` | list | — | Per-device `stat` plus optional `name`, `color`, `hidden`, `excluded`. |
+
+### Per-device options
+
+| Key | Effect |
+| --- | ------ |
+| `name` | Overrides the Energy dashboard's name. |
+| `color` | Fixes the segment colour instead of taking a palette slot. |
+| `hidden` | Removes the device's own segment, but its consumption still counts towards the total (it lands in **Other**). |
+| `excluded` | Takes the device out of the total entirely, so the headline figure and the bars both drop by its consumption. Implies `hidden`. |
+
+Palette slots follow each device's position in the Energy dashboard, so hiding or excluding one
+does not recolour the others.
 
 ## Comparison
 
@@ -134,6 +148,37 @@ card_mod:
 | `--ebc-icon-color` | `--primary-text-color` | Icon colour. |
 | `--ebc-period-background` | 9% text colour | Period button background. |
 | `--ebc-period-color` | `--primary-text-color` | Period button text. |
+
+## Splitting a device onto its own card
+
+To keep a big, spiky load like an EV charger from swamping everything else, exclude it from the
+main card and give it one of its own. The main card's total drops by the EV's consumption:
+
+```yaml
+# Everything except the EV charger
+type: custom:energy-breakdown-card
+icon: mdi:home-lightning-bolt
+devices:
+  - stat: sensor.ev_charger_energy
+    excluded: true
+```
+
+```yaml
+# The EV charger on its own, totalling just that device
+type: custom:energy-breakdown-card
+icon: mdi:ev-station
+total_mode: devices
+show_other: false
+devices:
+  - stat: sensor.lights_energy
+    hidden: true
+  - stat: sensor.tv_energy
+    hidden: true
+```
+
+With `total_mode: devices` the headline is the sum of the devices still shown, so the second card
+reports the EV charger alone. Both cards can be configured entirely from the visual editor — the
+**Σ** button on each device row excludes it from the total, and the eye button hides it.
 
 ## Colours
 

@@ -237,19 +237,57 @@ export function totalForRange(
   mode: TotalMode,
   start: Date,
   end: Date,
-  deviceIds: string[]
+  deviceIds: string[],
+  excludedIds: string[] = []
 ): number {
   if (mode === "devices") return sumRange(stats, deviceIds, start, end);
+  const excluded = sumRange(stats, excludedIds, start, end);
   const gridFrom = sumRange(stats, sources.gridFrom, start, end);
-  if (mode === "grid") return gridFrom;
+  if (mode === "grid") return Math.max(0, gridFrom - excluded);
   return Math.max(
     0,
     gridFrom -
       sumRange(stats, sources.gridTo, start, end) +
       sumRange(stats, sources.solarFrom, start, end) +
       sumRange(stats, sources.batteryFrom, start, end) -
-      sumRange(stats, sources.batteryTo, start, end)
+      sumRange(stats, sources.batteryTo, start, end) -
+      excluded
   );
+}
+
+export interface DevicePartition {
+  /** Every top-level device, in Energy dashboard order. */
+  all: DeviceConsumption[];
+  /** Devices that get their own stacked segment. */
+  visible: DeviceConsumption[];
+  /** Devices whose consumption is taken out of the total entirely. */
+  excludedIds: string[];
+  /**
+   * Palette slot per device, fixed by position in the full list so that
+   * hiding one device does not recolour the others.
+   */
+  colorIndex: Map<string, number>;
+}
+
+export function partitionDevices(
+  prefs: EnergyPrefs,
+  config: EnergyBreakdownCardConfig
+): DevicePartition {
+  const overrides = new Map((config.devices ?? []).map((d) => [d.stat, d]));
+  const all = topLevelDevices(prefs);
+  const colorIndex = new Map(all.map((d, i) => [d.stat_consumption, i]));
+  const excludedIds: string[] = [];
+  const visible: DeviceConsumption[] = [];
+  for (const device of all) {
+    const override = overrides.get(device.stat_consumption);
+    if (override?.excluded) {
+      excludedIds.push(device.stat_consumption);
+      continue;
+    }
+    if (override?.hidden) continue;
+    visible.push(device);
+  }
+  return { all, visible, excludedIds, colorIndex };
 }
 
 export interface BuildOptions {
@@ -268,16 +306,16 @@ export interface BuildOptions {
 export function buildChartData({ prefs, stats, buckets, config, palette }: BuildOptions): ChartData {
   const overrides = new Map((config.devices ?? []).map((d) => [d.stat, d]));
   const mode: TotalMode = config.total_mode ?? "grid";
+  const { visible, excludedIds, colorIndex } = partitionDevices(prefs, config);
 
-  const devices = topLevelDevices(prefs).filter((d) => !overrides.get(d.stat_consumption)?.hidden);
-
-  let series: Series[] = devices.map((device, index) => {
+  let series: Series[] = visible.map((device) => {
     const override = overrides.get(device.stat_consumption);
     const values = bucketize(stats, [device.stat_consumption], buckets);
+    const slot = colorIndex.get(device.stat_consumption) ?? 0;
     return {
       key: device.stat_consumption,
       name: override?.name || device.name || device.stat_consumption,
-      color: override?.color || palette.series[index % palette.series.length],
+      color: override?.color || palette.series[slot % palette.series.length],
       values,
       total: values.reduce((a, b) => a + b, 0)
     };
@@ -294,7 +332,11 @@ export function buildChartData({ prefs, stats, buckets, config, palette }: Build
   }
 
   const deviceTotals = buckets.map((_, i) => series.reduce((sum, s) => sum + s.values[i], 0) + overflow[i]);
-  const totals = combineTotals(stats, collectSourceStats(prefs), mode, buckets, deviceTotals);
+  const sourceTotals = combineTotals(stats, collectSourceStats(prefs), mode, buckets, deviceTotals);
+  // Excluded devices come off a source-derived total; a device-derived one
+  // never included them in the first place.
+  const excluded = mode === "devices" ? buckets.map(() => 0) : bucketize(stats, excludedIds, buckets);
+  const totals = sourceTotals.map((v, i) => Math.max(0, v - excluded[i]));
 
   const showOther = config.show_other !== false && mode !== "devices";
   if (showOther || overflow.some((v) => v > 0)) {

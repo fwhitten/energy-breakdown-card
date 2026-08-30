@@ -115,6 +115,30 @@ export interface Range {
   end: Date;
 }
 
+/**
+ * Step a period start back by `count` whole periods. Callers always pass a
+ * period start (day 1, week start, 1 January), so no day-of-month clamping is
+ * needed here.
+ */
+export function shiftPeriods(start: Date, period: Period, count: number): Date {
+  const d = new Date(start.getTime());
+  switch (period) {
+    case "day":
+      d.setDate(d.getDate() - count);
+      break;
+    case "week":
+      d.setDate(d.getDate() - 7 * count);
+      break;
+    case "month":
+      d.setMonth(d.getMonth() - count);
+      break;
+    case "year":
+      d.setFullYear(d.getFullYear() - count);
+      break;
+  }
+  return d;
+}
+
 /** The full calendar span of the current period (used for the chart's x axis). */
 export function currentRange(now: Date, period: Period, firstDayOfWeek: 0 | 1): Range {
   const start = startOfPeriod(now, period, firstDayOfWeek);
@@ -128,22 +152,22 @@ export function elapsedRange(now: Date, period: Period, firstDayOfWeek: 0 | 1): 
 }
 
 /**
- * The span the current period is compared against.
+ * The span the displayed period is compared against.
  *
  * `like_for_like` takes the same elapsed slice of the previous period, so
  * "today so far" is measured against "yesterday up to this time" rather than
- * against all of yesterday.
+ * against all of yesterday. A period that has already finished is compared in
+ * full, because its elapsed end is its period end.
  */
 export function comparisonRange(
-  now: Date,
+  periodStart: Date,
+  displayedEnd: Date,
   period: Period,
-  mode: ComparisonMode,
-  firstDayOfWeek: 0 | 1
+  mode: ComparisonMode
 ): Range {
-  const start = startOfPeriod(now, period, firstDayOfWeek);
-  const prevStart = shiftBack(start, period);
+  const prevStart = shiftBack(periodStart, period);
   if (mode === "like_for_like") {
-    return { start: prevStart, end: clampToPeriod(shiftBack(now, period), prevStart, period) };
+    return { start: prevStart, end: clampToPeriod(shiftBack(displayedEnd, period), prevStart, period) };
   }
   return { start: prevStart, end: endOfPeriod(prevStart, period) };
 }
@@ -155,12 +179,11 @@ function clampToPeriod(date: Date, periodStart: Date, period: Period): Date {
   return date;
 }
 
-/** Fraction of the current period that has elapsed, in (0, 1]. */
-export function elapsedFraction(now: Date, period: Period, firstDayOfWeek: 0 | 1): number {
-  const { start, end } = currentRange(now, period, firstDayOfWeek);
-  const span = end.getTime() - start.getTime();
+/** Fraction of the displayed period that has elapsed, in (0, 1]. */
+export function elapsedFraction(start: Date, displayedEnd: Date, periodEnd: Date): number {
+  const span = periodEnd.getTime() - start.getTime();
   if (span <= 0) return 1;
-  const done = (now.getTime() - start.getTime()) / span;
+  const done = (displayedEnd.getTime() - start.getTime()) / span;
   return Math.min(1, Math.max(1e-6, done));
 }
 

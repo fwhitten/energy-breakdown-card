@@ -235,8 +235,9 @@ export class EnergyBreakdownCardEditor extends LitElement {
                 No individual devices are configured in the Energy dashboard yet.
               </div>`
             : html`<div class="hint">
-                  Rename, recolour or hide any device from the Energy dashboard. Each field is
-                  labelled with the name the Energy dashboard uses; type to override it.
+                  Rename or recolour any device from the Energy dashboard. &#931; takes a device out
+                  of the total consumption figure; the eye hides it from the chart while still
+                  counting it towards the total.
                 </div>
                 ${this._devices.map((device, index) => this._renderDevice(device, index, palette.series))}`}
         ${this._data.show_other !== false ? this._renderOtherRow() : nothing}
@@ -298,11 +299,27 @@ export class EnergyBreakdownCardEditor extends LitElement {
               this._updateDevice(stat, { name: (e.target as HTMLInputElement).value || undefined })}
           />
         </div>
-        <ha-icon-button
-          .path=${override?.hidden ? MDI_EYE_OFF : MDI_EYE}
-          .label=${override?.hidden ? "Show device" : "Hide device"}
+        <button
+          class="toggle ${override?.excluded ? "off" : ""}"
+          title=${override?.excluded
+            ? "Excluded from the total — click to count it again"
+            : "Counted in the total — click to exclude it"}
+          aria-pressed=${override?.excluded ? "true" : "false"}
+          @click=${() => this._updateDevice(stat, { excluded: !override?.excluded || undefined })}
+        >
+          &#931;
+        </button>
+        <button
+          class="toggle ${override?.hidden ? "off" : ""}"
+          title=${override?.hidden ? "Hidden — click to show" : "Shown — click to hide"}
+          aria-pressed=${override?.hidden ? "true" : "false"}
+          ?disabled=${override?.excluded}
           @click=${() => this._updateDevice(stat, { hidden: !override?.hidden || undefined })}
-        ></ha-icon-button>
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d=${override?.hidden ? MDI_EYE_OFF : MDI_EYE} />
+          </svg>
+        </button>
       </div>
     `;
   }
@@ -365,8 +382,40 @@ export class EnergyBreakdownCardEditor extends LitElement {
       border-color: var(--primary-color);
     }
     .spacer {
-      inline-size: 48px;
+      inline-size: 76px;
       flex: 0 0 auto;
+    }
+    button.toggle {
+      flex: 0 0 auto;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      font: inherit;
+      font-size: 1.1em;
+      background: transparent;
+      color: var(--primary-text-color);
+    }
+    button.toggle svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+    }
+    button.toggle:hover:not([disabled]) {
+      background: color-mix(in srgb, var(--primary-text-color) 12%, transparent);
+    }
+    button.toggle.off {
+      color: var(--secondary-text-color);
+      opacity: 0.55;
+    }
+    button.toggle[disabled] {
+      opacity: 0.25;
+      cursor: default;
     }
     input.color {
       inline-size: 36px;

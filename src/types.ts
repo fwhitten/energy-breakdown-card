@@ -9,6 +9,8 @@ export interface DeviceOverride {
   name?: string;
   color?: string;
   hidden?: boolean;
+  /** Take this device's consumption out of the total entirely. */
+  excluded?: boolean;
 }
 
 export interface EnergyBreakdownCardConfig {

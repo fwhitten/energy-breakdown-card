@@ -5,8 +5,10 @@ import {
   comparisonRange,
   currentRange,
   elapsedFraction,
+  endOfPeriod,
   labelStride,
   shiftBack,
+  shiftPeriods,
   startOfPeriod,
   statsPeriodFor
 } from "./lib.mjs";
@@ -39,7 +41,8 @@ test("shiftBack clamps the day of month rather than rolling over", () => {
 
 test("like-for-like comparison uses the same elapsed slice of the previous period", () => {
   const now = new Date(2026, 7, 26, 10, 30);
-  const range = comparisonRange(now, "day", "like_for_like", 1);
+  const start = startOfPeriod(now, "day", 1);
+  const range = comparisonRange(start, now, "day", "like_for_like");
   assert.equal(range.start.getDate(), 25);
   assert.equal(range.start.getHours(), 0);
   assert.equal(range.end.getDate(), 25);
@@ -47,11 +50,35 @@ test("like-for-like comparison uses the same elapsed slice of the previous perio
   assert.equal(range.end.getMinutes(), 30);
 });
 
+test("a finished period is compared in full, not to a part period", () => {
+  // Navigating back gives a displayed end of the period end, so the previous
+  // period is measured whole.
+  const start = startOfPeriod(new Date(2026, 7, 26), "week", 1);
+  const previousWeekStart = shiftPeriods(start, "week", 1);
+  const range = comparisonRange(
+    previousWeekStart,
+    endOfPeriod(previousWeekStart, "week"),
+    "week",
+    "like_for_like"
+  );
+  assert.equal(range.start.getDate(), 10);
+  assert.equal(range.end.getDate(), 17);
+});
+
 test("full-previous comparison spans the whole previous period", () => {
   const now = new Date(2026, 7, 26, 10, 30);
-  const range = comparisonRange(now, "week", "full_previous", 1);
+  const start = startOfPeriod(now, "week", 1);
+  const range = comparisonRange(start, now, "week", "full_previous");
   assert.equal(range.start.getDate(), 17);
   assert.equal(range.end.getDate(), 24);
+});
+
+test("shiftPeriods steps back on calendar boundaries", () => {
+  const march = new Date(2026, 2, 1);
+  assert.equal(shiftPeriods(march, "month", 3).getMonth(), 11);
+  assert.equal(shiftPeriods(march, "month", 3).getFullYear(), 2025);
+  assert.equal(shiftPeriods(new Date(2026, 7, 24), "week", 2).getDate(), 10);
+  assert.equal(shiftPeriods(new Date(2026, 0, 1), "year", 1).getFullYear(), 2025);
 });
 
 test("day buckets cover all 24 hours of the calendar day", () => {
@@ -90,8 +117,11 @@ test("year buckets are the twelve months", () => {
 });
 
 test("elapsedFraction reports how much of the period has passed", () => {
+  const start = new Date(2026, 7, 26, 0, 0);
   const midday = new Date(2026, 7, 26, 12, 0);
-  assert.ok(Math.abs(elapsedFraction(midday, "day", 1) - 0.5) < 1e-9);
+  const end = new Date(2026, 7, 27, 0, 0);
+  assert.ok(Math.abs(elapsedFraction(start, midday, end) - 0.5) < 1e-9);
+  assert.equal(elapsedFraction(start, end, end), 1);
 });
 
 test("labelStride thins dense axes only", () => {

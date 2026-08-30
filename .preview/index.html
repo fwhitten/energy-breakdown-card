@@ -12,7 +12,8 @@ h5{color:#888;font:600 11px/1 sans-serif;margin:0 0 6px}
 </style></head><body>
 <div><h5>4 rows (240)</h5><div class="slot h240" id="a"></div>
      <h5 style="margin-top:12px">6 rows (340)</h5><div class="slot h340" id="b"></div></div>
-<div><h5>9 rows (480) — grid source missing</h5><div class="slot h480" id="c"></div></div>
+<div><h5>main card — EV excluded</h5><div class="slot h340" id="c"></div>
+     <h5 style="margin-top:12px">EV card — sum of devices</h5><div class="slot h240" id="d"></div></div>
 <div><h5>editor</h5><div id="ed"></div></div>
 <script type="module">
 customElements.define('ha-card',class extends HTMLElement{});
@@ -20,7 +21,7 @@ customElements.define('ha-icon',class extends HTMLElement{set icon(v){this.textC
 customElements.define('ha-form',class extends HTMLElement{connectedCallback(){this.style.display='block';this.style.padding='8px';this.style.color='#666';this.textContent='[ha-form fields]';}});
 customElements.define('ha-icon-button',class extends HTMLElement{connectedCallback(){this.style.cursor='pointer';this.textContent='👁';}set path(v){}set label(v){}});
 
-const DEVICES=[['sensor.lights','Lights',0.036],['sensor.tv','TV',0.005],['sensor.ev','EV Charger',0]];
+const DEVICES=[['sensor.lights','Lights',0.036],['sensor.tv','TV',0.005],['sensor.ev','EV Charger',0.25]];
 const mk=(grid)=>({energy_sources:grid?[{type:'grid',flow_from:[{stat_energy_from:'sensor.grid_in'}]}]:[{type:'solar',stat_energy_from:'sensor.solar'}],device_consumption:DEVICES.map(d=>({stat_consumption:d[0],name:d[1]}))});
 function seeded(i){return Math.abs(Math.sin(i*12.9898)*43758.5453%1);}
 function makeHass(grid){return {locale:{language:'en-GB'},themes:{},async callWS(msg){
@@ -37,16 +38,23 @@ function makeHass(grid){return {locale:{language:'en-GB'},themes:{},async callWS
   return out;}};}
 
 await import('./energy-breakdown-card.js');
-for(const [slot,grid] of [['a',true],['b',true],['c',false]]){
+const configs={
+  a:{},
+  b:{},
+  c:{devices:[{stat:'sensor.ev',excluded:true}]},
+  d:{total_mode:'devices',show_other:false,icon:'mdi:ev-station',
+     devices:[{stat:'sensor.lights',hidden:true},{stat:'sensor.tv',hidden:true}]}
+};
+for(const slot of ['a','b','c','d']){
   const card=document.createElement('energy-breakdown-card');
-  card.setConfig({type:'custom:energy-breakdown-card',icon:'mdi:lightning-bolt',default_period:'week'});
-  card.hass=makeHass(grid);
+  card.setConfig({type:'custom:energy-breakdown-card',icon:'mdi:lightning-bolt',default_period:'week',...configs[slot]});
+  card.hass=makeHass(true);
   document.getElementById(slot).appendChild(card);
   window['__'+slot]=card;
 }
 const ed=await customElements.get('energy-breakdown-card').getConfigElement();
 ed.hass=makeHass(true);
-ed.setConfig({type:'custom:energy-breakdown-card',icon:'mdi:lightning-bolt'});
+ed.setConfig({type:'custom:energy-breakdown-card',icon:'mdi:lightning-bolt',devices:[{stat:'sensor.ev',excluded:true},{stat:'sensor.tv',hidden:true}]});
 document.getElementById('ed').appendChild(ed);
 window.__ed=ed;
 </script></body></html>

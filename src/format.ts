@@ -11,3 +11,26 @@ export function formatPercent(value: number): string {
   const rounded = Math.round(value);
   return `${rounded > 0 ? "+" : ""}${rounded}%`;
 }
+
+/** Names the period being displayed, e.g. "18 – 24 Aug" or "July 2026". */
+export function formatPeriodLabel(period: string, start: Date, language?: string): string {
+  switch (period) {
+    case "day":
+      return start.toLocaleDateString(language, { weekday: "short", day: "numeric", month: "short" });
+    case "week": {
+      const end = new Date(start.getTime());
+      end.setDate(end.getDate() + 6);
+      const sameMonth = start.getMonth() === end.getMonth();
+      const from = start.toLocaleDateString(language, {
+        day: "numeric",
+        ...(sameMonth ? {} : { month: "short" })
+      });
+      const to = end.toLocaleDateString(language, { day: "numeric", month: "short" });
+      return `${from} \u2013 ${to}`;
+    }
+    case "month":
+      return start.toLocaleDateString(language, { month: "long", year: "numeric" });
+    default:
+      return String(start.getFullYear());
+  }
+}

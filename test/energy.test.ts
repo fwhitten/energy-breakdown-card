@@ -11,6 +11,8 @@ import {
   anchorStart,
   normaliseChanges,
   sourceTypes,
+  partitionDevices,
+  totalForRange,
   OTHER_KEY
 } from "./lib.mjs";
 
@@ -249,4 +251,72 @@ test("malformed flow entries are skipped rather than throwing", () => {
 test("sourceTypes lists what the configuration actually contains", () => {
   assert.deepEqual(sourceTypes(prefs), ["grid", "solar"]);
   assert.deepEqual(sourceTypes({ energy_sources: [], device_consumption: [] }), []);
+});
+
+test("hiding a device does not recolour the ones left", () => {
+  const buckets = buildBuckets(NOW, "week", 1);
+  const stats = {
+    grid_in: hourly([10, 10, 10, 10, 10, 10, 10]),
+    dev_a: hourly([1, 1, 1, 1, 1, 1, 1]),
+    dev_b: hourly([3, 3, 3, 3, 3, 3, 3])
+  };
+  const before = buildChartData({ prefs, stats, buckets, palette, config: { type: "x" } });
+  const after = buildChartData({
+    prefs,
+    stats,
+    buckets,
+    palette,
+    config: { type: "x", devices: [{ stat: "dev_a", hidden: true }] }
+  });
+  const colourOf = (data, name) => data.series.find((s) => s.name === name)?.color;
+  assert.equal(colourOf(after, "EV charger"), colourOf(before, "EV charger"));
+});
+
+test("an excluded device comes off the total and out of the stack", () => {
+  const buckets = buildBuckets(NOW, "week", 1);
+  const stats = {
+    grid_in: hourly([10, 10, 10, 10, 10, 10, 10]),
+    dev_a: hourly([4, 4, 4, 4, 4, 4, 4]),
+    dev_b: hourly([2, 2, 2, 2, 2, 2, 2])
+  };
+  const data = buildChartData({
+    prefs,
+    stats,
+    buckets,
+    palette,
+    config: { type: "x", devices: [{ stat: "dev_b", excluded: true }] }
+  });
+  assert.equal(data.series.some((s) => s.name === "EV charger"), false);
+  // 10 grid less the 2 excluded.
+  assert.deepEqual(data.totals, [8, 8, 8, 8, 8, 8, 8]);
+  const other = data.series.find((s) => s.key === OTHER_KEY);
+  assert.deepEqual(other.values, [4, 4, 4, 4, 4, 4, 4]);
+});
+
+test("totalForRange subtracts excluded devices from a source total", () => {
+  const start = new Date(2026, 7, 26, 0, 0);
+  const end = new Date(2026, 7, 26, 2, 0);
+  const entry = (id, v) => [
+    { start: start.getTime(), end: start.getTime() + 3600_000, change: v },
+    { start: start.getTime() + 3600_000, end: start.getTime() + 7200_000, change: v }
+  ];
+  const stats = { grid_in: entry("grid_in", 10), dev_b: entry("dev_b", 3) };
+  const sources = collectSourceStats(prefs);
+  assert.equal(totalForRange(stats, sources, "grid", start, end, ["dev_b"], []), 20);
+  assert.equal(totalForRange(stats, sources, "grid", start, end, [], ["dev_b"]), 14);
+});
+
+test("partitionDevices separates hidden, excluded and shown devices", () => {
+  const part = partitionDevices(prefs, {
+    type: "x",
+    devices: [
+      { stat: "dev_a", hidden: true },
+      { stat: "dev_b", excluded: true }
+    ]
+  });
+  assert.deepEqual(part.all.map((d) => d.stat_consumption), ["dev_a", "dev_b"]);
+  assert.deepEqual(part.visible, []);
+  assert.deepEqual(part.excludedIds, ["dev_b"]);
+  // Colour slots follow the full list, not what survives filtering.
+  assert.equal(part.colorIndex.get("dev_b"), 1);
 });

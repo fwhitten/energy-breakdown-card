@@ -2,26 +2,26 @@ import { LitElement, css, html, nothing, type PropertyValues, type TemplateResul
 import { customElement, property, state } from "lit/decorators.js";
 import { CARD_NAME, EDITOR_NAME, PERIOD_LABEL, PREVIOUS_LABEL, ALL_PERIODS } from "./const";
 import { CHART_PAD, renderChart } from "./chart";
-import { formatEnergy, formatPercent } from "./format";
+import { formatEnergy, formatPercent, formatPeriodLabel } from "./format";
 import { paletteFor } from "./theme";
 import {
   buildChartData,
   collectSourceStats,
   fetchPrefs,
   fetchStatistics,
+  partitionDevices,
   statIdsForTotal,
   sourceTypes,
   sumRange,
-  topLevelDevices,
   totalForRange
 } from "./energy";
 import {
   buildBuckets,
   comparisonRange,
-  currentRange,
   elapsedFraction,
   endOfPeriod,
   resolveFirstDayOfWeek,
+  shiftPeriods,
   startOfPeriod,
   statsPeriodFor
 } from "./periods";
@@ -53,6 +53,8 @@ export class EnergyBreakdownCard extends LitElement {
   @state() private _totalStatIds: string[] = [];
   @state() private _sourceTypes: string[] = [];
   @state() private _usedDeviceFallback = false;
+  @state() private _offset = 0;
+  @state() private _periodStart?: Date;
 
   private _resizeObserver?: ResizeObserver;
   private _timer?: number;
@@ -152,12 +154,19 @@ export class EnergyBreakdownCard extends LitElement {
       const period = this._period;
       const fdow = this._firstDayOfWeek;
       const now = new Date();
-      const buckets = buildBuckets(now, period, fdow);
-      const { start, end } = currentRange(now, period, fdow);
+
+      // The window being shown: the current period, stepped back by the
+      // navigation offset. Anchoring on the period start keeps month and year
+      // steps on calendar boundaries.
+      const start = shiftPeriods(startOfPeriod(now, period, fdow), period, this._offset);
+      const periodEnd = endOfPeriod(start, period);
+      const displayedEnd = this._offset === 0 ? now : periodEnd;
+      const buckets = buildBuckets(start, period, fdow);
       const statsPeriod = statsPeriodFor(period);
 
-      const devices = topLevelDevices(prefs);
-      const deviceIds = devices.map((d) => d.stat_consumption);
+      const { all, visible, excludedIds } = partitionDevices(prefs, config);
+      const deviceIds = all.map((d) => d.stat_consumption);
+      const visibleIds = visible.map((d) => d.stat_consumption);
       const sources = collectSourceStats(prefs);
       const totalIds = statIdsForTotal(sources, mode);
 
@@ -168,28 +177,30 @@ export class EnergyBreakdownCard extends LitElement {
       this._totalStatIds = totalIds;
       this._sourceTypes = sourceTypes(prefs);
       const ids = Array.from(new Set([...deviceIds, ...totalIds]));
-      const stats = await fetchStatistics(hass, ids, start, end, statsPeriod);
+      const stats = await fetchStatistics(hass, ids, start, periodEnd, statsPeriod);
       if (token !== this._fetchToken) return;
 
-      const palette = paletteFor(this, devices.length);
+      const palette = paletteFor(this, all.length);
       const data = buildChartData({ prefs, stats, buckets, config, palette });
-      let total = totalForRange(stats, sources, mode, start, now, deviceIds);
+      let total = totalForRange(stats, sources, mode, start, displayedEnd, visibleIds, excludedIds);
 
       // If the configured source yields nothing but the devices do, show the
       // devices' total rather than a bare zero. The notice explains why.
-      const deviceTotal = sumRange(stats, deviceIds, start, now);
+      const deviceTotal = sumRange(stats, visibleIds, start, displayedEnd);
       this._usedDeviceFallback = total <= 0 && deviceTotal > 0;
       if (this._usedDeviceFallback) total = deviceTotal;
 
       let comparison: number | null = null;
       if (config.show_comparison !== false) {
         comparison = await this._loadComparison(hass, {
-          now,
+          start,
+          displayedEnd,
+          periodEnd,
           period,
-          fdow,
           mode,
           sources,
-          deviceIds,
+          visibleIds,
+          excludedIds,
           totalIds,
           statsPeriod,
           current: total
@@ -198,6 +209,7 @@ export class EnergyBreakdownCard extends LitElement {
       }
 
       this._data = data;
+      this._periodStart = start;
       this._total = total;
       this._comparison = comparison;
       this._error = undefined;
@@ -212,12 +224,14 @@ export class EnergyBreakdownCard extends LitElement {
   private async _loadComparison(
     hass: HomeAssistant,
     args: {
-      now: Date;
+      start: Date;
+      displayedEnd: Date;
+      periodEnd: Date;
       period: Period;
-      fdow: 0 | 1;
       mode: TotalMode;
       sources: ReturnType<typeof collectSourceStats>;
-      deviceIds: string[];
+      visibleIds: string[];
+      excludedIds: string[];
       totalIds: string[];
       statsPeriod: ReturnType<typeof statsPeriodFor>;
       current: number;
@@ -225,27 +239,30 @@ export class EnergyBreakdownCard extends LitElement {
   ): Promise<number | null> {
     const config = this._config!;
     const mode: ComparisonMode = config.comparison_mode ?? "like_for_like";
-    const range = comparisonRange(args.now, args.period, mode, args.fdow);
-    const prevPeriodStart = startOfPeriod(range.start, args.period, args.fdow);
-    const fetchEnd = endOfPeriod(prevPeriodStart, args.period);
+    const range = comparisonRange(args.start, args.displayedEnd, args.period, mode);
+    const fetchEnd = endOfPeriod(range.start, args.period);
 
-    const ids = args.mode === "devices" ? args.deviceIds : args.totalIds;
+    const ids =
+      args.mode === "devices"
+        ? args.visibleIds
+        : Array.from(new Set([...args.totalIds, ...args.excludedIds]));
     if (!ids.length) return null;
 
-    const stats = await fetchStatistics(hass, ids, prevPeriodStart, fetchEnd, args.statsPeriod);
+    const stats = await fetchStatistics(hass, ids, range.start, fetchEnd, args.statsPeriod);
     const previous = totalForRange(
       stats,
       args.sources,
       args.mode,
       range.start,
       range.end,
-      args.deviceIds
+      args.visibleIds,
+      args.excludedIds
     );
     if (previous <= 0) return null;
 
     const current =
       mode === "projected"
-        ? args.current / elapsedFraction(args.now, args.period, args.fdow)
+        ? args.current / elapsedFraction(args.start, args.displayedEnd, args.periodEnd)
         : args.current;
     return ((current - previous) / previous) * 100;
   }
@@ -254,6 +271,16 @@ export class EnergyBreakdownCard extends LitElement {
     const periods = this._config?.periods ?? ALL_PERIODS;
     const index = periods.indexOf(this._period);
     this._period = periods[(index + 1) % periods.length];
+    this._offset = 0;
+    this._hover = null;
+    this._loading = true;
+    void this._load();
+  }
+
+  private _step(direction: -1 | 1): void {
+    const next = this._offset + direction;
+    if (next < 0) return;
+    this._offset = next;
     this._hover = null;
     this._loading = true;
     void this._load();
@@ -284,21 +311,55 @@ export class EnergyBreakdownCard extends LitElement {
                   <span class="unit">kWh</span>
                 </div>
                 ${this._renderComparison()}
+                ${this._renderPeriodLabel()}
               </div>
             </div>
-            <button
-              class="period"
-              @click=${this._cyclePeriod}
-              aria-label=${`Time period: ${PERIOD_LABEL[this._period]}. Click to change.`}
-            >
-              ${PERIOD_LABEL[this._period]}
-            </button>
+            <div class="controls">
+              <button
+                class="nav"
+                @click=${() => this._step(1)}
+                aria-label=${`Previous ${this._period}`}
+                title=${`Previous ${this._period}`}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z" />
+                </svg>
+              </button>
+              <button
+                class="nav"
+                ?disabled=${this._offset === 0}
+                @click=${() => this._step(-1)}
+                aria-label=${`Next ${this._period}`}
+                title=${`Next ${this._period}`}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8.6 7.4 10 6l6 6-6 6-1.4-1.4 4.6-4.6z" />
+                </svg>
+              </button>
+              <button
+                class="period"
+                @click=${this._cyclePeriod}
+                aria-label=${`Time period: ${PERIOD_LABEL[this._period]}. Click to change.`}
+              >
+                ${PERIOD_LABEL[this._period]}
+              </button>
+            </div>
           </div>
           ${this._renderNotice()}
           ${this._renderBody()}
           ${config.show_legend !== false ? this._renderLegend() : nothing}
         </div>
       </ha-card>
+    `;
+  }
+
+  /** Only shown once you navigate away from the current period. */
+  private _renderPeriodLabel(): TemplateResult | typeof nothing {
+    if (this._offset === 0 || !this._periodStart) return nothing;
+    return html`
+      <div class="period-label">
+        ${formatPeriodLabel(this._period, this._periodStart, this.hass?.locale?.language)}
+      </div>
     `;
   }
 
@@ -459,6 +520,7 @@ export class EnergyBreakdownCard extends LitElement {
       padding: 16px;
       min-height: 0;
       box-sizing: border-box;
+      container-type: inline-size;
     }
     .header {
       flex: 0 0 auto;
@@ -522,6 +584,47 @@ export class EnergyBreakdownCard extends LitElement {
       color: var(--secondary-text-color);
     }
     .comparison .against {
+      color: var(--secondary-text-color);
+    }
+    .controls {
+      flex: 0 0 auto;
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+    button.nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      color: var(--ebc-period-color);
+      background: transparent;
+    }
+    button.nav svg {
+      width: 22px;
+      height: 22px;
+      fill: currentColor;
+    }
+    button.nav:hover:not([disabled]) {
+      background: var(--ebc-period-background);
+    }
+    button.nav[disabled] {
+      opacity: 0.32;
+      cursor: default;
+    }
+    button.nav:focus-visible {
+      outline: 2px solid var(--primary-text-color);
+      outline-offset: 1px;
+    }
+    .period-label {
+      margin-top: 3px;
+      font-size: 0.85em;
       color: var(--secondary-text-color);
     }
     button.period {
@@ -658,6 +761,28 @@ export class EnergyBreakdownCard extends LitElement {
     .legend-value {
       font-variant-numeric: tabular-nums;
       color: var(--primary-text-color);
+    }
+    @container (max-width: 330px) {
+      .number {
+        font-size: 1.6em;
+      }
+      .unit,
+      .comparison,
+      .period-label {
+        font-size: 0.78em;
+      }
+      button.period {
+        padding: 6px 12px;
+        font-size: 0.85em;
+      }
+      button.nav {
+        width: 24px;
+        height: 24px;
+      }
+      button.nav svg {
+        width: 19px;
+        height: 19px;
+      }
     }
   `;
 }
