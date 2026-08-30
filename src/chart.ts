@@ -27,7 +27,9 @@ export function renderChart(data: ChartData, opts: ChartOptions): TemplateResult
   const plotH = Math.max(1, height - PAD_TOP - PAD_BOTTOM);
   const baseline = PAD_TOP + plotH;
   const count = data.buckets.length;
-  const max = niceMax(Math.max(...data.totals, 0));
+  // A short card cannot carry four labelled gridlines legibly.
+  const divisions = plotH < 110 ? 2 : GRID_LINES;
+  const max = niceMax(Math.max(...data.totals, 0), divisions);
   const slot = plotW / Math.max(1, count);
   const barWidth = Math.max(2, slot * 0.62);
   const radius = opts.rounded ? Math.min(barWidth / 2, 4) : 0;
@@ -36,8 +38,8 @@ export function renderChart(data: ChartData, opts: ChartOptions): TemplateResult
   const y = (v: number) => baseline - (v / max) * plotH;
 
   const gridlines: TemplateResult[] = [];
-  for (let i = 0; i <= GRID_LINES; i++) {
-    const step = max / GRID_LINES;
+  for (let i = 0; i <= divisions; i++) {
+    const step = max / divisions;
     const value = step * i;
     const gy = y(value);
     gridlines.push(svg`

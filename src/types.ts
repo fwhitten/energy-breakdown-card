@@ -24,7 +24,6 @@ export interface EnergyBreakdownCardConfig {
   other_color?: string;
   total_mode?: TotalMode;
   max_devices?: number;
-  chart_height?: number;
   rounded_bars?: boolean;
   first_day_of_week?: "auto" | "monday" | "sunday";
   devices?: DeviceOverride[];

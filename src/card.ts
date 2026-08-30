@@ -46,7 +46,9 @@ export class EnergyBreakdownCard extends LitElement {
   @state() private _error?: string;
   @state() private _loading = true;
   @state() private _width = 0;
+  @state() private _height = 0;
   @state() private _hover: number | null = null;
+  @state() private _totalStatIds: string[] = [];
 
   private _resizeObserver?: ResizeObserver;
   private _timer?: number;
@@ -99,7 +101,10 @@ export class EnergyBreakdownCard extends LitElement {
   public override connectedCallback(): void {
     super.connectedCallback();
     this._resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) this._width = Math.floor(entry.contentRect.width);
+      for (const entry of entries) {
+        this._width = Math.floor(entry.contentRect.width);
+        this._height = Math.floor(entry.contentRect.height);
+      }
     });
     this._timer = window.setInterval(() => void this._load(), REFRESH_INTERVAL_MS);
   }
@@ -156,6 +161,7 @@ export class EnergyBreakdownCard extends LitElement {
         throw new Error("No energy sources or devices are configured in the Energy dashboard.");
       }
 
+      this._totalStatIds = totalIds;
       const ids = Array.from(new Set([...deviceIds, ...totalIds]));
       const stats = await fetchStatistics(hass, ids, start, end, statsPeriod);
       if (token !== this._fetchToken) return;
@@ -277,6 +283,7 @@ export class EnergyBreakdownCard extends LitElement {
               ${PERIOD_LABEL[this._period]}
             </button>
           </div>
+          ${this._renderNotice()}
           ${this._renderBody()}
           ${config.show_legend !== false ? this._renderLegend() : nothing}
         </div>
@@ -296,15 +303,33 @@ export class EnergyBreakdownCard extends LitElement {
     `;
   }
 
+  /**
+   * Devices reporting while the total reads zero almost always means the
+   * configured source statistic is not the one holding the data.
+   */
+  private _renderNotice(): TemplateResult | typeof nothing {
+    if (this._error || !this._data || !this._totalStatIds.length) return nothing;
+    const devices = this._data.series.reduce((sum, s) => sum + s.total, 0);
+    if (this._total > 0 || devices <= 0) return nothing;
+    return html`
+      <div class="notice">
+        No statistics returned for ${this._totalStatIds.join(", ")} — check the source configured in
+        the Energy dashboard.
+      </div>
+    `;
+  }
+
   private _renderBody(): TemplateResult {
     if (this._error) {
       return html`<div class="chart error"><div class="message">${this._error}</div></div>`;
     }
-    const height = this._config?.chart_height ?? 200;
+    // The chart fills whatever height the card has been given, so resizing the
+    // card in a sections dashboard resizes the graph with it.
+    const height = this._height;
     const data = this._data;
     return html`
-      <div class="chart" style=${`height:${height}px`}>
-        ${data && this._width > 0
+      <div class="chart">
+        ${data && this._width > 0 && height > 0
           ? renderChart(data, {
               width: this._width,
               height,
@@ -393,25 +418,34 @@ export class EnergyBreakdownCard extends LitElement {
 
   public static override styles = css`
     :host {
-      --ebc-accent: var(--energy-grid-consumption-color, var(--primary-color));
-      --ebc-empty-bar: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
-      --ebc-grid: color-mix(in srgb, var(--secondary-text-color) 45%, transparent);
-    }
-    ha-card {
-      height: 100%;
       display: flex;
       flex-direction: column;
+      /* Floor for layouts that do not give the card a height of its own. */
+      min-height: var(--ebc-min-height, 240px);
+      --ebc-empty-bar: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
+      --ebc-grid: color-mix(in srgb, var(--secondary-text-color) 45%, transparent);
+      --ebc-icon-color: var(--primary-text-color);
+      --ebc-period-background: color-mix(in srgb, var(--primary-text-color) 9%, transparent);
+      --ebc-period-color: var(--primary-text-color);
+    }
+    ha-card {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
       overflow: hidden;
     }
     .root {
+      flex: 1 1 auto;
       display: flex;
       flex-direction: column;
       gap: 8px;
       padding: 16px;
-      height: 100%;
+      min-height: 0;
       box-sizing: border-box;
     }
     .header {
+      flex: 0 0 auto;
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
@@ -425,7 +459,7 @@ export class EnergyBreakdownCard extends LitElement {
     }
     .icon {
       --mdc-icon-size: 32px;
-      color: var(--ebc-accent);
+      color: var(--ebc-icon-color);
       flex: 0 0 auto;
       margin-top: 2px;
     }
@@ -480,11 +514,11 @@ export class EnergyBreakdownCard extends LitElement {
       font-size: 0.95em;
       font-weight: 700;
       font-family: inherit;
-      color: var(--text-primary-color, #fff);
-      background: var(--ebc-accent);
+      color: var(--ebc-period-color);
+      background: var(--ebc-period-background);
     }
     button.period:hover {
-      filter: brightness(1.1);
+      background: color-mix(in srgb, var(--primary-text-color) 16%, transparent);
     }
     button.period:focus-visible {
       outline: 2px solid var(--primary-text-color);
@@ -492,12 +526,18 @@ export class EnergyBreakdownCard extends LitElement {
     }
     .chart {
       position: relative;
-      flex: 1 1 auto;
-      min-height: 120px;
+      /* Basis 0 so the chart claims the free space before it has any content
+         to be measured from. */
+      flex: 1 1 0;
+      min-height: 0;
       width: 100%;
     }
     .chart svg {
       display: block;
+    }
+    .notice {
+      font-size: 0.8em;
+      color: var(--warning-color, #ffa726);
     }
     .message {
       color: var(--secondary-text-color);
@@ -576,6 +616,7 @@ export class EnergyBreakdownCard extends LitElement {
       flex: 0 0 auto;
     }
     .legend {
+      flex: 0 0 auto;
       display: flex;
       flex-wrap: wrap;
       gap: 4px 14px;

@@ -22,6 +22,7 @@ below the selected period:
 ## Features
 
 - Reads the Energy dashboard's configured devices and sources — nothing to configure twice
+- Everything is converted to kWh by the recorder, so devices logging in Wh line up with the rest
 - Stacked per-device breakdown, plus an **Other** segment for consumption no device accounts for,
   so the bars always add up to your real total
 - Headline consumption for the current period with an optional `+/-%` against the previous one
@@ -94,7 +95,6 @@ devices:
 | `other_name` | string | `Other` | Label for that segment. |
 | `other_color` | string | from theme | Colour for that segment. |
 | `max_devices` | number | `8` | Devices to show individually; the rest fold into **Other**. |
-| `chart_height` | number | `200` | Chart height in pixels. |
 | `rounded_bars` | boolean | `true` | Rounded bar caps. |
 | `first_day_of_week` | string | `auto` | `auto`, `monday` or `sunday`. |
 | `devices` | list | — | Per-device `stat` plus optional `name`, `color`, `hidden`. |
@@ -109,6 +109,21 @@ yesterday is misleading. `comparison_mode` controls how that is handled:
 - **`full_previous`** — compares against the whole previous period.
 - **`projected`** — extrapolates the current period to a full period, then compares against the
   whole previous one. Smoother, but it is a forecast.
+
+## Sizing
+
+The chart fills whatever height the card is given, so in a **sections** dashboard you resize the
+card by dragging it and the graph grows or shrinks with it — the legend stays pinned underneath.
+Gridlines thin out automatically on short cards.
+
+In layouts that do not give the card a height of its own (masonry views, for example) it falls back
+to a 240px minimum, which you can change with a CSS variable:
+
+```yaml
+card_mod:
+  style: |
+    :host { --ebc-min-height: 320px; }
+```
 
 ## Colours
 
@@ -131,6 +146,10 @@ The headline figure comes from your grid consumption statistics over the elapsed
 period (or the home-consumption formula, in `home` mode). Each stacked segment is a device from
 the Energy dashboard's **Individual devices** list, and **Other** is whatever the headline figure
 has left over once every device is subtracted — usually lighting, sockets and anything unmonitored.
+
+All statistics are requested in kWh, so a device recording in Wh is converted for you rather than
+being stacked a thousand times too large. Sources that only expose a running total (many
+externally imported statistics) have their per-bucket change derived from it.
 
 Devices that are sub-metered off another device (Home Assistant's *"included in"* setting) are
 excluded from the stack, so nothing is counted twice.

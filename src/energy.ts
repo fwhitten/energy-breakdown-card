@@ -18,6 +18,56 @@ export async function fetchPrefs(hass: HomeAssistant): Promise<EnergyPrefs> {
   return hass.callWS<EnergyPrefs>({ type: "energy/get_prefs" });
 }
 
+/**
+ * Statistics start one interval early so that a series without a usable
+ * `change` can have its first bucket derived from the preceding `sum`.
+ */
+export function anchorStart(start: Date, period: StatsPeriod): Date {
+  const d = new Date(start.getTime());
+  switch (period) {
+    case "hour":
+      d.setHours(d.getHours() - 1);
+      return d;
+    case "day":
+      d.setDate(d.getDate() - 1);
+      return d;
+    case "week":
+      d.setDate(d.getDate() - 7);
+      return d;
+    case "month":
+      d.setMonth(d.getMonth() - 1);
+      return d;
+  }
+}
+
+/**
+ * Fill in `change` for statistics that only carry a running `sum`. Home
+ * Assistant usually computes `change` itself, but externally imported
+ * statistics can come back with it unset, which would otherwise read as zero.
+ */
+export function normaliseChanges(response: StatisticsResponse): StatisticsResponse {
+  const out: StatisticsResponse = {};
+  for (const [id, entries] of Object.entries(response)) {
+    if (!entries?.length) {
+      out[id] = entries ?? [];
+      continue;
+    }
+    const hasChange = entries.some((e) => typeof e.change === "number" && Number.isFinite(e.change));
+    if (hasChange) {
+      out[id] = entries;
+      continue;
+    }
+    let previous: number | null = null;
+    out[id] = entries.map((entry) => {
+      const sum = typeof entry.sum === "number" && Number.isFinite(entry.sum) ? entry.sum : null;
+      const change = sum !== null && previous !== null ? sum - previous : 0;
+      if (sum !== null) previous = sum;
+      return { ...entry, change };
+    });
+  }
+  return out;
+}
+
 export async function fetchStatistics(
   hass: HomeAssistant,
   statisticIds: string[],
@@ -26,14 +76,18 @@ export async function fetchStatistics(
   period: StatsPeriod
 ): Promise<StatisticsResponse> {
   if (!statisticIds.length) return {};
-  return hass.callWS<StatisticsResponse>({
+  const response = await hass.callWS<StatisticsResponse>({
     type: "recorder/statistics_during_period",
-    start_time: start.toISOString(),
+    start_time: anchorStart(start, period).toISOString(),
     end_time: end.toISOString(),
     statistic_ids: statisticIds,
     period,
-    types: ["change"]
+    types: ["change", "sum"],
+    // Device stats are often recorded in Wh; let the recorder do the conversion
+    // so every series arrives in the unit the card displays.
+    units: { energy: "kWh" }
   });
+  return normaliseChanges(response);
 }
 
 /** Devices that are not sub-metered off another device, so nothing is counted twice. */

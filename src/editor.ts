@@ -21,7 +21,6 @@ const LABELS: Record<string, string> = {
   show_other: 'Show "Other" remainder',
   other_name: '"Other" label',
   max_devices: "Maximum devices shown",
-  chart_height: "Chart height (px)",
   rounded_bars: "Rounded bars",
   first_day_of_week: "First day of week"
 };
@@ -108,14 +107,7 @@ const SCHEMA = [
       }
     ]
   },
-  {
-    type: "grid",
-    name: "",
-    schema: [
-      { name: "max_devices", selector: { number: { min: 1, max: 20, mode: "box" } } },
-      { name: "chart_height", selector: { number: { min: 100, max: 500, step: 10, mode: "box" } } }
-    ]
-  }
+  { name: "max_devices", selector: { number: { min: 1, max: 20, mode: "box" } } }
 ];
 
 @customElement(EDITOR_NAME)
@@ -159,7 +151,6 @@ export class EnergyBreakdownCardEditor extends LitElement {
       total_mode: "grid",
       first_day_of_week: "auto",
       max_devices: 8,
-      chart_height: 200,
       periods: ALL_PERIODS,
       ...config
     };
@@ -244,8 +235,8 @@ export class EnergyBreakdownCardEditor extends LitElement {
                 No individual devices are configured in the Energy dashboard yet.
               </div>`
             : html`<div class="hint">
-                  Rename, recolour or hide any device from the Energy dashboard. Leave a name blank to
-                  use the Energy dashboard's own name.
+                  Rename, recolour or hide any device from the Energy dashboard. Each field is
+                  labelled with the name the Energy dashboard uses; type to override it.
                 </div>
                 ${this._devices.map((device, index) => this._renderDevice(device, index, palette.series))}`}
         ${this._data.show_other !== false ? this._renderOtherRow() : nothing}
@@ -268,8 +259,8 @@ export class EnergyBreakdownCardEditor extends LitElement {
         />
         <ha-textfield
           class="name"
+          label="Other"
           .value=${config.other_name ?? ""}
-          placeholder="Other"
           @change=${(e: Event) =>
             this._updateConfig({ other_name: (e.target as HTMLInputElement).value || undefined })}
         ></ha-textfield>
@@ -294,8 +285,8 @@ export class EnergyBreakdownCardEditor extends LitElement {
         />
         <ha-textfield
           class="name"
+          .label=${device.name || stat}
           .value=${override?.name ?? ""}
-          .placeholder=${device.name || stat}
           @change=${(e: Event) =>
             this._updateDevice(stat, { name: (e.target as HTMLInputElement).value || undefined })}
         ></ha-textfield>

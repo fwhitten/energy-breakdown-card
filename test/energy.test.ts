@@ -8,6 +8,8 @@ import {
   statIdsForTotal,
   sumRange,
   topLevelDevices,
+  anchorStart,
+  normaliseChanges,
   OTHER_KEY
 } from "./lib.mjs";
 
@@ -168,4 +170,49 @@ test("home consumption mode nets off export and adds solar", () => {
   };
   const data = buildChartData({ prefs, stats, buckets, palette, config: { type: "x", total_mode: "home" } });
   assert.equal(data.totals[0], 13);
+});
+
+test("anchorStart steps back exactly one interval", () => {
+  const start = new Date(2026, 7, 26, 0, 0);
+  assert.equal(anchorStart(start, "hour").getHours(), 23);
+  assert.equal(anchorStart(start, "day").getDate(), 25);
+  assert.equal(anchorStart(start, "month").getMonth(), 6);
+});
+
+test("normaliseChanges leaves a series that already has change alone", () => {
+  const input = { a: [{ start: 0, end: 1, change: 5, sum: 100 }] };
+  assert.deepEqual(normaliseChanges(input).a, input.a);
+});
+
+test("normaliseChanges derives change from a running sum", () => {
+  const input = {
+    a: [
+      { start: 0, end: 1, change: null, sum: 100 },
+      { start: 1, end: 2, change: null, sum: 104 },
+      { start: 2, end: 3, change: null, sum: 111 }
+    ]
+  };
+  const out = normaliseChanges(input).a;
+  // The first entry is the anchor: it has no predecessor to difference against.
+  assert.deepEqual(out.map((e) => e.change), [0, 4, 7]);
+});
+
+test("normaliseChanges copes with an empty or absent series", () => {
+  assert.deepEqual(normaliseChanges({ a: [] }).a, []);
+});
+
+test("a sum-only source still produces a total and an Other segment", () => {
+  const buckets = buildBuckets(NOW, "week", 1);
+  let running = 1000;
+  const gridEntries = [{ start: buckets[0].start.getTime() - 86400_000, end: buckets[0].start.getTime(), change: null, sum: running }];
+  for (const b of buckets) {
+    running += 10;
+    gridEntries.push({ start: b.start.getTime(), end: b.end.getTime(), change: null, sum: running });
+  }
+  const stats = normaliseChanges({ grid_in: gridEntries, dev_a: hourly([4, 4, 4, 4, 4, 4, 4]) });
+  const data = buildChartData({ prefs, stats, buckets, palette, config: { type: "x" } });
+  const other = data.series.find((s) => s.key === OTHER_KEY);
+  assert.ok(other, "expected an Other series");
+  assert.deepEqual(other.values, [6, 6, 6, 6, 6, 6, 6]);
+  assert.deepEqual(data.totals, [10, 10, 10, 10, 10, 10, 10]);
 });
