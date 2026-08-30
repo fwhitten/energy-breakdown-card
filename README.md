@@ -153,7 +153,7 @@ MIT
 
 [hacs-badge]: https://img.shields.io/badge/HACS-Custom-41BDF5.svg
 [hacs-repo-badge]: https://my.home-assistant.io/badges/hacs_repository.svg
-[hacs-repo-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=fwhitten&repository=energy-breakdown-card&category=dashboard
+[hacs-repo-url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=fwhitten&repository=energy-breakdown-card&category=plugin
 [hacs-url]: https://github.com/hacs/integration
 [validate-badge]: https://github.com/fwhitten/energy-breakdown-card/actions/workflows/validate.yml/badge.svg
 [validate-url]: https://github.com/fwhitten/energy-breakdown-card/actions/workflows/validate.yml
