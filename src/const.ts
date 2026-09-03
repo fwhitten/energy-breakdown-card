@@ -2,7 +2,7 @@ import type { Period } from "./types";
 
 export const CARD_NAME = "energy-breakdown-card";
 export const EDITOR_NAME = "energy-breakdown-card-editor";
-export const CARD_VERSION = "1.4.0";
+export const CARD_VERSION = "1.4.1";
 
 export const ALL_PERIODS: Period[] = ["day", "week", "month", "year"];
 

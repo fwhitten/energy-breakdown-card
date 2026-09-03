@@ -12,7 +12,6 @@ import {
   partitionDevices,
   statIdsForTotal,
   sourceTypes,
-  sumRange,
   totalForRange
 } from "./energy";
 import {
@@ -182,13 +181,19 @@ export class EnergyBreakdownCard extends LitElement {
 
       const palette = paletteFor(this, all.length);
       const data = buildChartData({ prefs, stats, buckets, config, palette });
-      let total = totalForRange(stats, sources, mode, start, displayedEnd, visibleIds, excludedIds);
+
+      // The headline is the sum of the buckets the chart draws, so the figure
+      // and the legend can never disagree. Buckets past the present are empty,
+      // so this is the period-to-date total without discarding part of the
+      // in-progress bucket.
+      const sum = (values: number[]) => values.reduce((a, b) => a + b, 0);
+      const sourceTotal = sum(data.sourceTotals);
+      const deviceTotal = sum(data.series.map((s) => s.total));
 
       // If the configured source yields nothing but the devices do, show the
       // devices' total rather than a bare zero. The notice explains why.
-      const deviceTotal = sumRange(stats, visibleIds, start, displayedEnd);
-      this._usedDeviceFallback = total <= 0 && deviceTotal > 0;
-      if (this._usedDeviceFallback) total = deviceTotal;
+      this._usedDeviceFallback = mode !== "devices" && sourceTotal <= 0 && deviceTotal > 0;
+      const total = this._usedDeviceFallback ? deviceTotal : sum(data.totals);
 
       let comparison: number | null = null;
       if (config.show_comparison !== false) {

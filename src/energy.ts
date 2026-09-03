@@ -336,11 +336,13 @@ export function buildChartData({ prefs, stats, buckets, config, palette }: Build
   // Excluded devices come off a source-derived total; a device-derived one
   // never included them in the first place.
   const excluded = mode === "devices" ? buckets.map(() => 0) : bucketize(stats, excludedIds, buckets);
-  const totals = sourceTotals.map((v, i) => Math.max(0, v - excluded[i]));
+  const netSourceTotals = sourceTotals.map((v, i) => Math.max(0, v - excluded[i]));
 
   const showOther = config.show_other !== false && mode !== "devices";
   if (showOther || overflow.some((v) => v > 0)) {
-    const values = totals.map((t, i) => Math.max(0, (showOther ? t - deviceTotals[i] : 0) + overflow[i]));
+    const values = netSourceTotals.map((t, i) =>
+      Math.max(0, (showOther ? t - deviceTotals[i] : 0) + overflow[i])
+    );
     const total = values.reduce((a, b) => a + b, 0);
     if (total > 0) {
       series.push({
@@ -355,5 +357,10 @@ export function buildChartData({ prefs, stats, buckets, config, palette }: Build
 
   // The stack must never exceed the headline figure it sits under.
   const stacked = buckets.map((_, i) => series.reduce((sum, s) => sum + s.values[i], 0));
-  return { buckets, series, totals: stacked.map((v, i) => Math.max(v, totals[i])) };
+  return {
+    buckets,
+    series,
+    totals: stacked.map((v, i) => Math.max(v, netSourceTotals[i])),
+    sourceTotals: netSourceTotals
+  };
 }

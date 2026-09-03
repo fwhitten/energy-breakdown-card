@@ -1,6 +1,6 @@
 {
   "name": "energy-breakdown-card",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "A Home Assistant Lovelace card showing stacked per-device energy consumption from the Energy dashboard, with day/week/month/year drill-down.",
   "type": "module",
   "private": true,

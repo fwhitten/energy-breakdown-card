@@ -202,6 +202,14 @@ period (or the home-consumption formula, in `home` mode). Each stacked segment i
 the Energy dashboard's **Individual devices** list, and **Other** is whatever the headline figure
 has left over once every device is subtracted — usually lighting, sockets and anything unmonitored.
 
+The headline figure is the sum of the buckets the chart draws, so it always agrees with the legend
+beneath it. Buckets after the present are empty, so the figure is the period to date without
+discarding any of the in-progress hour or day.
+
+The comparison is worked out separately, over the previous period. Where `like_for_like` has to cut
+that period part way through an interval, the interval is apportioned by how much of it falls
+inside the range.
+
 All statistics are requested in kWh, so a device recording in Wh is converted for you rather than
 being stacked a thousand times too large. Sources that only expose a running total (many
 externally imported statistics) have their per-bucket change derived from it.

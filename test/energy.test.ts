@@ -320,3 +320,49 @@ test("partitionDevices separates hidden, excluded and shown devices", () => {
   // Colour slots follow the full list, not what survives filtering.
   assert.equal(part.colorIndex.get("dev_b"), 1);
 });
+
+test("the total and the legend are computed from the same buckets", () => {
+  const buckets = buildBuckets(NOW, "week", 1);
+  // A part-finished final bucket, as the in-progress day always is.
+  const stats = {
+    grid_in: hourly([10, 10, 10, 10, 10, 10, 3]),
+    dev_a: hourly([4, 4, 4, 4, 4, 4, 1]),
+    dev_b: hourly([2, 2, 2, 2, 2, 2, 0])
+  };
+  const data = buildChartData({ prefs, stats, buckets, palette, config: { type: "x" } });
+  const headline = data.totals.reduce((a, b) => a + b, 0);
+  const legend = data.series.reduce((sum, s) => sum + s.total, 0);
+  assert.equal(headline, legend);
+  assert.equal(headline, 63);
+});
+
+test("with sum-of-devices totals the headline equals the devices shown", () => {
+  const buckets = buildBuckets(NOW, "week", 1);
+  const stats = {
+    grid_in: hourly([50, 50, 50, 50, 50, 50, 50]),
+    dev_a: hourly([4, 4, 4, 4, 4, 4, 1]),
+    dev_b: hourly([2, 2, 2, 2, 2, 2, 0])
+  };
+  const data = buildChartData({
+    prefs,
+    stats,
+    buckets,
+    palette,
+    config: { type: "x", total_mode: "devices", show_other: false, devices: [{ stat: "dev_b", hidden: true }] }
+  });
+  assert.deepEqual(data.series.map((s) => s.name), ["Heat pump"]);
+  assert.equal(
+    data.totals.reduce((a, b) => a + b, 0),
+    data.series[0].total
+  );
+  assert.equal(data.series[0].total, 25);
+});
+
+test("sourceTotals stays zero when the source reported nothing", () => {
+  const buckets = buildBuckets(NOW, "week", 1);
+  const stats = { dev_a: hourly([4, 4, 4, 4, 4, 4, 4]) };
+  const data = buildChartData({ prefs, stats, buckets, palette, config: { type: "x" } });
+  assert.deepEqual(data.sourceTotals, [0, 0, 0, 0, 0, 0, 0]);
+  // The drawn totals still carry the stack, so the chart is not blank.
+  assert.deepEqual(data.totals, [4, 4, 4, 4, 4, 4, 4]);
+});

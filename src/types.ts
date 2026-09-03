@@ -88,8 +88,13 @@ export interface Bucket {
 export interface ChartData {
   buckets: Bucket[];
   series: Series[];
-  /** Per-bucket stacked totals. */
+  /** Per-bucket totals as drawn: never less than the stack sitting under them. */
   totals: number[];
+  /**
+   * Per-bucket totals as the configured source reported them, before being
+   * floored by the stack. Zero throughout means the source gave us nothing.
+   */
+  sourceTotals: number[];
 }
 
 export interface HomeAssistant {
