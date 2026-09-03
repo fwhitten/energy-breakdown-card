@@ -1,7 +1,8 @@
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { CARD_NAME, EDITOR_NAME, PERIOD_LABEL, PREVIOUS_LABEL, ALL_PERIODS } from "./const";
-import { CHART_PAD, renderChart } from "./chart";
+import { renderChart } from "./chart";
+import { chartLayout } from "./layout";
 import { formatEnergy, formatLegendEnergy, formatPercent, formatPeriodLabel } from "./format";
 import { paletteFor } from "./theme";
 import {
@@ -453,9 +454,8 @@ export class EnergyBreakdownCard extends LitElement {
     const bucket = data.buckets[index];
     if (!bucket) return nothing;
 
-    const plotW = Math.max(1, this._width - CHART_PAD.left - CHART_PAD.right);
-    const slot = plotW / Math.max(1, data.buckets.length);
-    const centre = CHART_PAD.left + slot * index + slot / 2;
+    const { padLeft, slot } = chartLayout(data, this._width, this._height);
+    const centre = padLeft + slot * index + slot / 2;
     const half = 90;
     const left = Math.min(Math.max(centre, half), Math.max(half, this._width - half));
     const rows = data.series.filter((s) => s.values[index] > 0);

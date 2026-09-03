@@ -1,6 +1,7 @@
 import { svg, type TemplateResult } from "lit";
 import { labelStride } from "./periods";
-import { GRID_LINES, formatTick, niceMax } from "./scale";
+import { PAD_TOP, chartLayout } from "./layout";
+import { formatTick } from "./scale";
 import type { ChartData } from "./types";
 
 export interface ChartOptions {
@@ -12,24 +13,13 @@ export interface ChartOptions {
   onSelect: (index: number) => void;
 }
 
-export const CHART_PAD = { left: 38, right: 6, top: 10, bottom: 22 };
-
-const PAD_LEFT = CHART_PAD.left;
-const PAD_RIGHT = CHART_PAD.right;
-const PAD_TOP = CHART_PAD.top;
-const PAD_BOTTOM = CHART_PAD.bottom;
-
+export { chartLayout } from "./layout";
 
 export function renderChart(data: ChartData, opts: ChartOptions): TemplateResult {
   const { width, height } = opts;
-  const plotW = Math.max(1, width - PAD_LEFT - PAD_RIGHT);
-  const plotH = Math.max(1, height - PAD_TOP - PAD_BOTTOM);
+  const { padLeft, plotH, slot, max, divisions, step } = chartLayout(data, width, height);
   const baseline = PAD_TOP + plotH;
   const count = data.buckets.length;
-  // A short card cannot carry four labelled gridlines legibly.
-  const divisions = plotH < 110 ? 2 : GRID_LINES;
-  const max = niceMax(Math.max(...data.totals, 0), divisions);
-  const slot = plotW / Math.max(1, count);
   const barWidth = Math.max(2, slot * 0.62);
   const radius = opts.rounded ? Math.min(barWidth / 2, 4) : 0;
   const stride = labelStride(count);
@@ -38,19 +28,16 @@ export function renderChart(data: ChartData, opts: ChartOptions): TemplateResult
 
   const gridlines: TemplateResult[] = [];
   for (let i = 0; i <= divisions; i++) {
-    const step = max / divisions;
     const value = step * i;
     const gy = y(value);
     gridlines.push(svg`
-      <line class="grid" x1=${PAD_LEFT} x2=${PAD_LEFT + plotW} y1=${gy} y2=${gy} />
-      <text class="tick" x=${PAD_LEFT - 8} y=${gy + 4} text-anchor="end">
-        ${formatTick(value, step)}
-      </text>
+      <line class="grid" x1=${padLeft} x2=${width} y1=${gy} y2=${gy} />
+      <text class="tick" x="0" y=${gy + 4} text-anchor="start">${formatTick(value, step)}</text>
     `);
   }
 
   const bars = data.buckets.map((_bucket, i) => {
-    const cx = PAD_LEFT + slot * i + slot / 2;
+    const cx = padLeft + slot * i + slot / 2;
     const x = cx - barWidth / 2;
     const total = data.totals[i];
     const barTop = y(total);
@@ -85,7 +72,7 @@ export function renderChart(data: ChartData, opts: ChartOptions): TemplateResult
         </g>
         <rect
           class="hit"
-          x=${PAD_LEFT + slot * i}
+          x=${padLeft + slot * i}
           y=${PAD_TOP}
           width=${slot}
           height=${plotH}
@@ -99,7 +86,7 @@ export function renderChart(data: ChartData, opts: ChartOptions): TemplateResult
 
   const labels = data.buckets.map((bucket, i) => {
     if (i % stride !== 0) return svg``;
-    const cx = PAD_LEFT + slot * i + slot / 2;
+    const cx = padLeft + slot * i + slot / 2;
     return svg`<text class="xlabel" x=${cx} y=${height - 6} text-anchor="middle">${bucket.label}</text>`;
   });
 

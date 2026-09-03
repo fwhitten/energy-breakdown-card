@@ -3,5 +3,6 @@ export * from "./periods";
 export * from "./energy";
 export * from "./format";
 export * from "./scale";
+export * from "./layout";
 export * from "./const";
 export * from "./theme";

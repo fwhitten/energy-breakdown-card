@@ -1,6 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatEnergy, formatLegendEnergy, formatPercent, formatTick, niceMax } from "./lib.mjs";
+import {
+  chartLayout,
+  formatEnergy,
+  formatLegendEnergy,
+  formatPercent,
+  formatTick,
+  niceMax
+} from "./lib.mjs";
 
 test("niceMax rounds up to a readable axis maximum", () => {
   assert.equal(niceMax(32), 40);
@@ -61,4 +68,29 @@ test("legend figures render an exact zero plainly", () => {
 
 test("the headline keeps its two decimals", () => {
   assert.equal(formatEnergy(94.89, "en-GB"), "94.89");
+});
+
+const layoutData = (totals: number[]) => ({
+  buckets: totals.map(() => ({ start: new Date(), end: new Date(), label: "" })),
+  series: [],
+  totals,
+  sourceTotals: totals
+});
+
+test("the plot runs to the right edge of the card", () => {
+  const { padLeft, plotW } = chartLayout(layoutData([1, 2, 3, 4, 5, 6, 7]), 400, 200);
+  assert.equal(padLeft + plotW, 400);
+});
+
+test("the axis inset is only as wide as its labels need", () => {
+  const small = chartLayout(layoutData([1, 2, 3]), 400, 200);
+  const large = chartLayout(layoutData([12000, 20000, 30000]), 400, 200);
+  assert.ok(large.padLeft > small.padLeft, "a wider label needs a wider inset");
+  assert.ok(small.padLeft <= 24, `expected a tight inset, got ${small.padLeft}`);
+  assert.ok(large.padLeft <= 60, "the inset is capped");
+});
+
+test("buckets divide the plot evenly", () => {
+  const { plotW, slot } = chartLayout(layoutData([1, 2, 3, 4]), 400, 200);
+  assert.equal(slot * 4, plotW);
 });
