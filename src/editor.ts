@@ -11,7 +11,10 @@ import type {
 } from "./types";
 
 const LABELS: Record<string, string> = {
+  name: "Name",
   icon: "Icon",
+  show_navigation: "Show previous/next buttons",
+  show_period_button: "Show time period button",
   default_period: "Default time period",
   periods: "Selectable time periods",
   total_mode: "Consumption figure",
@@ -26,7 +29,14 @@ const LABELS: Record<string, string> = {
 };
 
 const SCHEMA = [
-  { name: "icon", selector: { icon: {} } },
+  {
+    type: "grid",
+    name: "",
+    schema: [
+      { name: "name", selector: { text: {} } },
+      { name: "icon", selector: { icon: {} } }
+    ]
+  },
   {
     name: "periods",
     selector: {
@@ -63,6 +73,14 @@ const SCHEMA = [
           }
         }
       }
+    ]
+  },
+  {
+    type: "grid",
+    name: "",
+    schema: [
+      { name: "show_period_button", selector: { boolean: {} } },
+      { name: "show_navigation", selector: { boolean: {} } }
     ]
   },
   { name: "show_comparison", selector: { boolean: {} } },
@@ -145,6 +163,8 @@ export class EnergyBreakdownCardEditor extends LitElement {
     return {
       show_comparison: true,
       show_legend: true,
+      show_navigation: true,
+      show_period_button: true,
       show_other: true,
       rounded_bars: true,
       comparison_mode: "like_for_like",

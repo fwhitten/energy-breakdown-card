@@ -15,7 +15,10 @@ export interface DeviceOverride {
 
 export interface EnergyBreakdownCardConfig {
   type: string;
+  name?: string;
   icon?: string;
+  show_navigation?: boolean;
+  show_period_button?: boolean;
   periods?: Period[];
   default_period?: Period;
   show_comparison?: boolean;

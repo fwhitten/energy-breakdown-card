@@ -7,7 +7,6 @@ export interface ChartOptions {
   width: number;
   height: number;
   rounded: boolean;
-  unit: string;
   activeIndex: number | null;
   onHover: (index: number | null) => void;
   onSelect: (index: number) => void;
@@ -45,7 +44,7 @@ export function renderChart(data: ChartData, opts: ChartOptions): TemplateResult
     gridlines.push(svg`
       <line class="grid" x1=${PAD_LEFT} x2=${PAD_LEFT + plotW} y1=${gy} y2=${gy} />
       <text class="tick" x=${PAD_LEFT - 8} y=${gy + 4} text-anchor="end">
-        ${i === 0 ? opts.unit : formatTick(value, step)}
+        ${formatTick(value, step)}
       </text>
     `);
   }

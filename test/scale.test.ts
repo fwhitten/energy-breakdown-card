@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { formatEnergy, formatPercent, formatTick, niceMax } from "./lib.mjs";
+import { formatEnergy, formatLegendEnergy, formatPercent, formatTick, niceMax } from "./lib.mjs";
 
 test("niceMax rounds up to a readable axis maximum", () => {
   assert.equal(niceMax(32), 40);
@@ -44,4 +44,21 @@ test("formatPercent signs the delta", () => {
   assert.equal(formatPercent(43.2), "+43%");
   assert.equal(formatPercent(-23.4), "-23%");
   assert.equal(formatPercent(0), "0%");
+});
+
+test("legend figures carry precision suited to their magnitude", () => {
+  assert.equal(formatLegendEnergy(0.1234, "en-GB"), "0.12");
+  assert.equal(formatLegendEnergy(1.234, "en-GB"), "1.2");
+  assert.equal(formatLegendEnergy(12.34, "en-GB"), "12");
+  assert.equal(formatLegendEnergy(123.4, "en-GB"), "123");
+  assert.equal(formatLegendEnergy(1234.5, "en-GB"), "1,235");
+});
+
+test("legend figures render an exact zero plainly", () => {
+  assert.equal(formatLegendEnergy(0, "en-GB"), "0");
+  assert.equal(formatLegendEnergy(0.004, "en-GB"), "0.00");
+});
+
+test("the headline keeps its two decimals", () => {
+  assert.equal(formatEnergy(94.89, "en-GB"), "94.89");
 });

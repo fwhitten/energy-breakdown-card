@@ -63,6 +63,7 @@ Add the card from the dashboard card picker and configure it visually. The YAML 
 
 ```yaml
 type: custom:energy-breakdown-card
+name: Home energy
 icon: mdi:lightning-bolt
 default_period: week
 periods:
@@ -86,7 +87,10 @@ devices:
 
 | Option | Type | Default | Description |
 | ------ | ---- | ------- | ----------- |
+| `name` | string | — | Optional heading across the top of the card. |
 | `icon` | string | `mdi:lightning-bolt` | Any Home Assistant icon, shown top left. |
+| `show_period_button` | boolean | `true` | Show the button that cycles the time period. |
+| `show_navigation` | boolean | `true` | Show the arrows that step through earlier periods. |
 | `periods` | list | all four | Which periods the button cycles through. |
 | `default_period` | string | first enabled | Period shown when the card loads. |
 | `total_mode` | string | `grid` | `grid` (import only), `home` (grid + solar + battery, net of export), or `devices` (sum of devices). |
@@ -166,6 +170,7 @@ devices:
 ```yaml
 # The EV charger on its own, totalling just that device
 type: custom:energy-breakdown-card
+name: EV charger
 icon: mdi:ev-station
 total_mode: devices
 show_other: false
@@ -201,6 +206,10 @@ The headline figure comes from your grid consumption statistics over the elapsed
 period (or the home-consumption formula, in `home` mode). Each stacked segment is a device from
 the Energy dashboard's **Individual devices** list, and **Other** is whatever the headline figure
 has left over once every device is subtracted — usually lighting, sockets and anything unmonitored.
+
+Legend and tooltip figures carry as much precision as their size warrants — 0.12, 1.2, 12, 123 —
+so a small device is not rounded away and a large one is not padded with noughts. The headline
+keeps two decimals.
 
 The headline figure is the sum of the buckets the chart draws, so it always agrees with the legend
 beneath it. Buckets after the present are empty, so the figure is the period to date without

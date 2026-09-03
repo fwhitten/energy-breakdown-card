@@ -2,7 +2,7 @@ import { LitElement, css, html, nothing, type PropertyValues, type TemplateResul
 import { customElement, property, state } from "lit/decorators.js";
 import { CARD_NAME, EDITOR_NAME, PERIOD_LABEL, PREVIOUS_LABEL, ALL_PERIODS } from "./const";
 import { CHART_PAD, renderChart } from "./chart";
-import { formatEnergy, formatPercent, formatPeriodLabel } from "./format";
+import { formatEnergy, formatLegendEnergy, formatPercent, formatPeriodLabel } from "./format";
 import { paletteFor } from "./theme";
 import {
   buildChartData,
@@ -68,6 +68,8 @@ export class EnergyBreakdownCard extends LitElement {
     return {
       type: `custom:${CARD_NAME}`,
       icon: "mdi:lightning-bolt",
+      show_navigation: true,
+      show_period_button: true,
       periods: ["day", "week", "month", "year"],
       default_period: "week",
       show_comparison: true,
@@ -305,6 +307,7 @@ export class EnergyBreakdownCard extends LitElement {
     return html`
       <ha-card>
         <div class="root">
+          ${config.name ? html`<div class="card-name">${config.name}</div>` : nothing}
           <div class="header">
             <div class="summary">
               ${config.icon
@@ -319,7 +322,25 @@ export class EnergyBreakdownCard extends LitElement {
                 ${this._renderPeriodLabel()}
               </div>
             </div>
-            <div class="controls">
+            ${this._renderControls()}
+          </div>
+          ${this._renderNotice()}
+          ${this._renderBody()}
+          ${config.show_legend !== false ? this._renderLegend() : nothing}
+        </div>
+      </ha-card>
+    `;
+  }
+
+  private _renderControls(): TemplateResult | typeof nothing {
+    const config = this._config!;
+    const showNav = config.show_navigation !== false;
+    const showPeriod = config.show_period_button !== false;
+    if (!showNav && !showPeriod) return nothing;
+    return html`
+      <div class="controls">
+        ${showNav
+          ? html`
               <button
                 class="nav"
                 @click=${() => this._step(1)}
@@ -341,6 +362,10 @@ export class EnergyBreakdownCard extends LitElement {
                   <path d="M8.6 7.4 10 6l6 6-6 6-1.4-1.4 4.6-4.6z" />
                 </svg>
               </button>
+            `
+          : nothing}
+        ${showPeriod
+          ? html`
               <button
                 class="period"
                 @click=${this._cyclePeriod}
@@ -348,13 +373,9 @@ export class EnergyBreakdownCard extends LitElement {
               >
                 ${PERIOD_LABEL[this._period]}
               </button>
-            </div>
-          </div>
-          ${this._renderNotice()}
-          ${this._renderBody()}
-          ${config.show_legend !== false ? this._renderLegend() : nothing}
-        </div>
-      </ha-card>
+            `
+          : nothing}
+      </div>
     `;
   }
 
@@ -411,7 +432,6 @@ export class EnergyBreakdownCard extends LitElement {
               width: this._width,
               height,
               rounded: this._config?.rounded_bars !== false,
-              unit: "kWh",
               activeIndex: this._hover,
               onHover: (i) => {
                 this._hover = i;
@@ -439,12 +459,13 @@ export class EnergyBreakdownCard extends LitElement {
     const half = 90;
     const left = Math.min(Math.max(centre, half), Math.max(half, this._width - half));
     const rows = data.series.filter((s) => s.values[index] > 0);
+    const language = this.hass?.locale?.language;
 
     return html`
       <div class="tooltip" style=${`left:${left}px`}>
         <div class="tt-head">
           <span>${this._tooltipTitle(bucket.start)}</span>
-          <span class="tt-total">${formatEnergy(data.totals[index])} kWh</span>
+          <span class="tt-total">${formatLegendEnergy(data.totals[index], language)} kWh</span>
         </div>
         ${rows.length
           ? rows.map(
@@ -452,7 +473,7 @@ export class EnergyBreakdownCard extends LitElement {
                 <div class="tt-row">
                   <span class="swatch" style=${`background:${s.color}`}></span>
                   <span class="tt-name">${s.name}</span>
-                  <span class="tt-value">${formatEnergy(s.values[index])}</span>
+                  <span class="tt-value">${formatLegendEnergy(s.values[index], language)}</span>
                 </div>
               `
             )
@@ -485,7 +506,7 @@ export class EnergyBreakdownCard extends LitElement {
             <div class="legend-item">
               <span class="swatch" style=${`background:${s.color}`}></span>
               <span class="legend-name">${s.name}</span>
-              <span class="legend-value">${formatEnergy(s.total)}</span>
+              <span class="legend-value">${formatLegendEnergy(s.total, this.hass?.locale?.language)}</span>
             </div>
           `
         )}
@@ -526,6 +547,16 @@ export class EnergyBreakdownCard extends LitElement {
       min-height: 0;
       box-sizing: border-box;
       container-type: inline-size;
+    }
+    .card-name {
+      flex: 0 0 auto;
+      font-size: 1.05em;
+      font-weight: 500;
+      line-height: 1.2;
+      color: var(--primary-text-color);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .header {
       flex: 0 0 auto;

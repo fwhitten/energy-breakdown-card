@@ -7,6 +7,20 @@ export function formatEnergy(value: number, language?: string): string {
   }).format(value);
 }
 
+/**
+ * Enough precision to be useful at any magnitude without a wall of noughts:
+ * 0.12, 1.2, 12, 123.
+ */
+export function formatLegendEnergy(value: number, language?: string): string {
+  if (value === 0) return "0";
+  const abs = Math.abs(value);
+  const digits = abs >= 10 ? 0 : abs >= 1 ? 1 : 2;
+  return new Intl.NumberFormat(language || undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits
+  }).format(value);
+}
+
 export function formatPercent(value: number): string {
   const rounded = Math.round(value);
   return `${rounded > 0 ? "+" : ""}${rounded}%`;
