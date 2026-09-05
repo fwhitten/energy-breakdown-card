@@ -297,8 +297,9 @@ thresholds:
 `power_entity` is only needed for a device with no power sensor set in the Energy dashboard — it
 overrides what the card would otherwise read from there.
 
-With `show_axes: false` the plot runs to the left, right and bottom edges of the card, with the
-fill continuing behind the distribution bar and the legend.
+With `show_axes: false` the plot runs to the left, right and bottom edges of the card. The line's
+zero sits just above the distribution bar, and only the fill carries on beneath it, darkening as it
+goes so the bar and legend stay readable. Set `--pbc-fade-color` to change what it fades towards.
 
 The axis fits the window by default, so quiet periods stay legible. Set `y_max` if you would rather
 a given height always meant the same wattage.

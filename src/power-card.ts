@@ -96,26 +96,41 @@ export class PowerBreakdownCard extends LitElement {
 
   public override connectedCallback(): void {
     super.connectedCallback();
-    this._resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        this._width = Math.floor(entry.contentRect.width);
-        this._height = Math.floor(entry.contentRect.height);
-      }
-    });
+    this._resizeObserver ??= new ResizeObserver(() => this._measure());
+    // Home Assistant detaches and reattaches cards as they scroll in and out,
+    // and observing only in firstUpdated leaves a reattached card measuring
+    // whatever it happened to be when it was first laid out.
+    void this.updateComplete.then(() => this._observe());
     this._timer = window.setInterval(() => void this._load(), HISTORY_REFRESH_MS);
   }
 
   public override disconnectedCallback(): void {
     super.disconnectedCallback();
     this._resizeObserver?.disconnect();
-    this._resizeObserver = undefined;
     if (this._timer) window.clearInterval(this._timer);
     this._timer = undefined;
   }
 
   protected override firstUpdated(): void {
-    const container = this.renderRoot.querySelector(".chart");
-    if (container && this._resizeObserver) this._resizeObserver.observe(container);
+    this._observe();
+  }
+
+  private _observe(): void {
+    const container = this.renderRoot?.querySelector(".chart");
+    if (!container || !this._resizeObserver) return;
+    this._resizeObserver.disconnect();
+    this._resizeObserver.observe(container);
+    this._measure();
+  }
+
+  private _measure(): void {
+    const container = this.renderRoot?.querySelector(".chart");
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const width = Math.round(rect.width);
+    const height = Math.round(rect.height);
+    if (Math.abs(width - this._width) > 1) this._width = width;
+    if (Math.abs(height - this._height) > 1) this._height = height;
   }
 
   /**
@@ -131,6 +146,7 @@ export class PowerBreakdownCard extends LitElement {
   }
 
   protected override updated(changed: PropertyValues): void {
+    this._measure();
     this._measureBleed();
     if (!changed.has("hass") || !this.hass) return;
     const previous = changed.get("hass") as HomeAssistant | undefined;
@@ -406,6 +422,7 @@ export class PowerBreakdownCard extends LitElement {
               showAxes: this._config?.show_axes !== false,
               smooth: this._config?.smooth === true,
               lineWidth: this._config?.line_width ?? 2.5,
+              extraBottom: bleed ? this._bleedBottom : 0,
               language: this.hass?.locale?.language,
               gradientId: this._gradientId
             })
@@ -464,10 +481,10 @@ export class PowerBreakdownCard extends LitElement {
       flex-direction: column;
       box-sizing: border-box;
       height: 100%;
-      min-height: var(--pbc-min-height, 200px);
+      min-height: var(--pbc-min-height, 176px);
       --pbc-bleed-x: 17px;
       --pbc-icon-color: var(--primary-text-color);
-      --pbc-icon-size: 1.6em;
+      --pbc-icon-size: 2.2em;
       --ebc-grid: color-mix(in srgb, var(--secondary-text-color) 45%, transparent);
     }
     ha-card {
@@ -519,7 +536,7 @@ export class PowerBreakdownCard extends LitElement {
       margin-top: 0.22em;
     }
     .number {
-      font-size: 2.4em;
+      font-size: 2.2em;
       font-weight: 300;
       line-height: 1.05;
       color: var(--primary-text-color);
@@ -545,6 +562,14 @@ export class PowerBreakdownCard extends LitElement {
       position: absolute;
       top: 0;
       left: calc(-1 * var(--pbc-bleed-x));
+    }
+    .fade-from {
+      stop-color: var(--pbc-fade-color, #000);
+      stop-opacity: 0;
+    }
+    .fade-to {
+      stop-color: var(--pbc-fade-color, #000);
+      stop-opacity: 0.92;
     }
     .line {
       /* Width comes from the attribute so line_width can set it; a rule here
@@ -625,6 +650,9 @@ export class PowerBreakdownCard extends LitElement {
     @container (max-width: 330px) {
       .number {
         font-size: 1.6em;
+      }
+      .icon {
+        --pbc-icon-size: 1.6em;
       }
       .peak {
         font-size: 0.78em;

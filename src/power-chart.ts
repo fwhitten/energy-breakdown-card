@@ -14,6 +14,8 @@ export interface PowerChartOptions {
   showAxes: boolean;
   smooth: boolean;
   lineWidth: number;
+  /** Height below the plot that only the fill occupies. */
+  extraBottom?: number;
   language?: string;
   /** Unique per card, so several cards on a page do not share a gradient. */
   gradientId: string;
@@ -24,12 +26,14 @@ export function renderPowerChart(opts: PowerChartOptions): TemplateResult {
   const layout = powerLayout(values, width, height, {
     showAxes: opts.showAxes,
     yMax: opts.yMax,
-    language: opts.language
+    language: opts.language,
+    extraBottom: opts.extraBottom
   });
-  const { padLeft, plotH, baseline, max } = layout;
+  const { padLeft, plotH, baseline, areaBottom, max } = layout;
   const paths = buildPaths(values, layout, opts.smooth);
   const stops = gradientStops(opts.thresholds, max);
   const areaId = `${opts.gradientId}-area`;
+  const fadeId = `${opts.gradientId}-fade`;
 
   const gridlines = layout.ticks.map((tick) => {
     const gy = baseline - (tick.value / max) * plotH;
@@ -85,9 +89,30 @@ export function renderPowerChart(opts: PowerChartOptions): TemplateResult {
             (s) => svg`<stop offset=${s.offset} stop-color=${s.color} stop-opacity="0.28" />`
           )}
         </linearGradient>
+        <linearGradient
+          id=${fadeId}
+          gradientUnits="userSpaceOnUse"
+          x1="0"
+          y1=${baseline}
+          x2="0"
+          y2=${areaBottom}
+        >
+          <stop class="fade-from" offset="0" />
+          <stop class="fade-to" offset="1" />
+        </linearGradient>
       </defs>
       ${gridlines}
       ${paths.area ? svg`<path class="area" d=${paths.area} fill=${`url(#${areaId})`} />` : svg``}
+      ${areaBottom > baseline
+        ? svg`<rect
+            class="fade"
+            x="0"
+            y=${baseline}
+            width=${width}
+            height=${areaBottom - baseline}
+            fill=${`url(#${fadeId})`}
+          />`
+        : svg``}
       ${paths.line
         ? svg`<path
             class="line"

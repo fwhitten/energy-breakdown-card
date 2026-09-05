@@ -10,6 +10,11 @@ export interface PowerLayoutOptions {
   showAxes: boolean;
   yMax?: number;
   language?: string;
+  /**
+   * Height below the plot that only the fill may occupy. The line's zero sits
+   * above it, so the trace never runs behind whatever the fill bleeds under.
+   */
+  extraBottom?: number;
 }
 
 export interface PowerLayout {
@@ -17,7 +22,10 @@ export interface PowerLayout {
   padBottom: number;
   plotW: number;
   plotH: number;
+  /** Where zero sits, and the foot of the line. */
   baseline: number;
+  /** Where the fill closes, which may be lower than the baseline. */
+  areaBottom: number;
   max: number;
   divisions: number;
   step: number;
@@ -33,7 +41,8 @@ export function powerLayout(
 ): PowerLayout {
   const peak = values.reduce<number>((m, v) => (v !== null && v > m ? v : m), 0);
   const padBottom = opts.showAxes ? X_LABEL_HEIGHT : 0;
-  const plotH = Math.max(1, height - POWER_PAD_TOP - padBottom);
+  const extraBottom = Math.max(0, opts.extraBottom ?? 0);
+  const plotH = Math.max(1, height - POWER_PAD_TOP - padBottom - extraBottom);
   const divisions = plotH < 110 ? 2 : 4;
   const max =
     opts.yMax && opts.yMax > 0 ? opts.yMax : niceMax(peak > 0 ? peak : 1, divisions);
@@ -59,6 +68,7 @@ export function powerLayout(
     plotW,
     plotH,
     baseline: POWER_PAD_TOP + plotH,
+    areaBottom: POWER_PAD_TOP + plotH + extraBottom,
     max,
     divisions,
     step,
@@ -81,7 +91,7 @@ export function buildPaths(
   layout: PowerLayout,
   smooth: boolean
 ): PowerPaths {
-  const { padLeft, plotH, baseline, max, slot } = layout;
+  const { padLeft, plotH, baseline, areaBottom, max, slot } = layout;
   const y = (v: number) => baseline - (Math.min(Math.max(v, 0), max) / max) * plotH;
 
   const lineParts: string[] = [];
@@ -99,7 +109,7 @@ export function buildPaths(
       const half = Math.max(slot / 2, 0.5);
       lineParts.push(`M ${only.x - half} ${only.y} L ${only.x + half} ${only.y}`);
       areaParts.push(
-        `M ${only.x - half} ${baseline} L ${only.x - half} ${only.y} L ${only.x + half} ${only.y} L ${only.x + half} ${baseline} Z`
+        `M ${only.x - half} ${areaBottom} L ${only.x - half} ${only.y} L ${only.x + half} ${only.y} L ${only.x + half} ${areaBottom} Z`
       );
       segment = [];
       return;
@@ -109,7 +119,7 @@ export function buildPaths(
     const first = segment[0];
     const last = segment[segment.length - 1];
     areaParts.push(
-      `M ${first.x} ${baseline} L ${points.join(" L ")} L ${last.x} ${baseline} Z`
+      `M ${first.x} ${areaBottom} L ${points.join(" L ")} L ${last.x} ${areaBottom} Z`
     );
     segment = [];
   };

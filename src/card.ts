@@ -108,29 +108,44 @@ export class EnergyBreakdownCard extends LitElement {
 
   public override connectedCallback(): void {
     super.connectedCallback();
-    this._resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        this._width = Math.floor(entry.contentRect.width);
-        this._height = Math.floor(entry.contentRect.height);
-      }
-    });
+    this._resizeObserver ??= new ResizeObserver(() => this._measure());
+    // Cards are detached and reattached as they scroll in and out, so observe
+    // again rather than only on first render.
+    void this.updateComplete.then(() => this._observe());
     this._timer = window.setInterval(() => void this._load(), REFRESH_INTERVAL_MS);
   }
 
   public override disconnectedCallback(): void {
     super.disconnectedCallback();
     this._resizeObserver?.disconnect();
-    this._resizeObserver = undefined;
     if (this._timer) window.clearInterval(this._timer);
     this._timer = undefined;
   }
 
   protected override firstUpdated(): void {
-    const container = this.renderRoot.querySelector(".chart");
-    if (container && this._resizeObserver) this._resizeObserver.observe(container);
+    this._observe();
+  }
+
+  private _observe(): void {
+    const container = this.renderRoot?.querySelector(".chart");
+    if (!container || !this._resizeObserver) return;
+    this._resizeObserver.disconnect();
+    this._resizeObserver.observe(container);
+    this._measure();
+  }
+
+  private _measure(): void {
+    const container = this.renderRoot?.querySelector(".chart");
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const width = Math.round(rect.width);
+    const height = Math.round(rect.height);
+    if (Math.abs(width - this._width) > 1) this._width = width;
+    if (Math.abs(height - this._height) > 1) this._height = height;
   }
 
   protected override updated(changed: PropertyValues): void {
+    this._measure();
     if (!changed.has("hass") || !this.hass) return;
     const previous = changed.get("hass") as HomeAssistant | undefined;
     // First hass, or a theme change that the palette is derived from.
@@ -527,7 +542,7 @@ export class EnergyBreakdownCard extends LitElement {
       --ebc-empty-bar: color-mix(in srgb, var(--primary-text-color) 8%, transparent);
       --ebc-grid: color-mix(in srgb, var(--secondary-text-color) 45%, transparent);
       --ebc-icon-color: var(--primary-text-color);
-      --ebc-icon-size: 1.6em;
+      --ebc-icon-size: 2.2em;
       --ebc-period-background: color-mix(in srgb, var(--primary-text-color) 9%, transparent);
       --ebc-period-color: var(--primary-text-color);
     }
@@ -577,8 +592,7 @@ export class EnergyBreakdownCard extends LitElement {
       height: var(--ebc-icon-size);
       color: var(--ebc-icon-color);
       flex: 0 0 auto;
-      /* Optically centred on the headline figure beside it. */
-      margin-top: 0.22em;
+      margin-top: 0.02em;
     }
     .figures {
       min-width: 0;
@@ -590,7 +604,7 @@ export class EnergyBreakdownCard extends LitElement {
       line-height: 1.05;
     }
     .number {
-      font-size: 2.4em;
+      font-size: 2.2em;
       font-weight: 300;
       color: var(--primary-text-color);
     }
@@ -805,6 +819,9 @@ export class EnergyBreakdownCard extends LitElement {
     @container (max-width: 330px) {
       .number {
         font-size: 1.6em;
+      }
+      .icon {
+        --ebc-icon-size: 1.6em;
       }
       .unit,
       .comparison,

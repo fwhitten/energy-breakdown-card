@@ -286,3 +286,26 @@ test("the axis still clears the line it contains", () => {
     assert.ok(layout.max < peak * 1.5, `${layout.max} is too much room above ${peak}`);
   }
 });
+
+test("the fill may sit below the line's zero", () => {
+  const layout = powerLayout([100, 200], 400, 240, { showAxes: false, extraBottom: 60 });
+  assert.equal(layout.areaBottom - layout.baseline, 60);
+  assert.equal(layout.areaBottom, 240);
+  // The plot itself has given up that height, so the line stays above it.
+  assert.ok(layout.baseline <= 180, `baseline ${layout.baseline} is inside the bleed`);
+});
+
+test("with nothing bleeding the fill closes on the baseline", () => {
+  const layout = powerLayout([100, 200], 400, 240, { showAxes: false });
+  assert.equal(layout.areaBottom, layout.baseline);
+});
+
+test("the line never dips below its zero, but the fill reaches the bottom", () => {
+  const values = [0, 500];
+  const layout = powerLayout(values, 200, 240, { showAxes: false, extraBottom: 60 });
+  const paths = buildPaths(values, layout, false);
+  const lineYs = [...paths.line.matchAll(/[ML] [\d.-]+ ([\d.-]+)/g)].map((m) => Number(m[1]));
+  const areaYs = [...paths.area.matchAll(/[ML] [\d.-]+ ([\d.-]+)/g)].map((m) => Number(m[1]));
+  assert.ok(Math.max(...lineYs) <= layout.baseline, "the line stops at the baseline");
+  assert.ok(Math.max(...areaYs) === layout.areaBottom, "the fill closes at the bottom");
+});
