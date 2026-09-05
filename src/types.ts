@@ -42,9 +42,23 @@ export interface EnergyPrefs {
 
 export interface DeviceConsumption {
   stat_consumption: string;
+  /** Instantaneous rate of flow, in watts for electricity. */
+  stat_rate?: string;
   name?: string;
   /** Set when this device is sub-metered off another device's stat. */
   included_in_stat?: string | null;
+}
+
+/**
+ * How a grid or battery source's power is wired up. Home Assistant allows a
+ * single signed sensor, a single inverted one, or a positive sensor for each
+ * direction.
+ */
+export interface PowerConfig {
+  stat_rate?: string;
+  stat_rate_inverted?: string;
+  stat_rate_from?: string;
+  stat_rate_to?: string;
 }
 
 export interface FlowFrom {
@@ -58,8 +72,11 @@ export interface EnergySource {
   type: "grid" | "solar" | "battery" | "gas" | "water";
   flow_from?: FlowFrom[];
   flow_to?: FlowTo[];
-  stat_energy_from?: string;
-  stat_energy_to?: string;
+  stat_energy_from?: string | null;
+  stat_energy_to?: string | null;
+  /** Power measurement: positive when consuming, negative when exporting. */
+  stat_rate?: string;
+  power_config?: PowerConfig;
 }
 
 export interface StatisticValue {
@@ -100,10 +117,58 @@ export interface ChartData {
   sourceTotals: number[];
 }
 
+export interface HassEntity {
+  state: string;
+  attributes: { unit_of_measurement?: string; friendly_name?: string };
+  last_updated?: string;
+}
+
 export interface HomeAssistant {
   locale?: { language?: string };
   language?: string;
   config?: { time_zone?: string };
   themes?: unknown;
+  states?: Record<string, HassEntity | undefined>;
   callWS<T>(msg: Record<string, unknown>): Promise<T>;
+}
+
+export interface Threshold {
+  value: number;
+  color: string;
+}
+
+export interface PowerDeviceOverride {
+  /** The device's energy statistic id, as it appears in the Energy dashboard. */
+  stat: string;
+  name?: string;
+  color?: string;
+  hidden?: boolean;
+  /** Overrides the power entity taken from the Energy dashboard. */
+  power_entity?: string;
+}
+
+export interface PowerBreakdownCardConfig {
+  type: string;
+  name?: string;
+  icon?: string;
+  hours?: number;
+  total_mode?: TotalMode;
+  thresholds?: Threshold[];
+  y_max?: number;
+  show_axes?: boolean;
+  show_distribution?: boolean;
+  show_legend?: boolean;
+  show_peak?: boolean;
+  show_other?: boolean;
+  other_name?: string;
+  other_color?: string;
+  max_devices?: number;
+  smooth?: boolean;
+  devices?: PowerDeviceOverride[];
+}
+
+/** One point on the power line. A null value is a genuine gap in the data. */
+export interface Sample {
+  t: number;
+  v: number | null;
 }

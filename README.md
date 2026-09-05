@@ -5,9 +5,13 @@
 
 [![Open your Home Assistant instance and open this repository inside the Home Assistant Community Store.][hacs-repo-badge]][hacs-repo-url]
 
-A Lovelace card for Home Assistant that shows where your energy actually goes. It reads your
-**Energy dashboard** configuration directly — no entity wiring — and draws a stacked bar chart
-broken down by device, with a headline total and a comparison against the previous period.
+Two Lovelace cards for Home Assistant that show where your energy actually goes. Both read your
+**Energy dashboard** configuration directly — no entity wiring — and one HACS install provides both.
+
+- **`custom:energy-breakdown-card`** — a stacked bar chart of energy (kWh) broken down by device,
+  with a headline total and a comparison against the previous period.
+- **`custom:power-breakdown-card`** — live power (W) as a threshold-coloured line, with an animated
+  per-device distribution bar. See [Power Breakdown Card](#power-breakdown-card).
 
 Tap the period button to cycle **Day → Week → Month → Year**. The chart always graphs one level
 below the selected period:
@@ -238,6 +242,61 @@ is showing the sum of your individual devices instead. The message says which ca
 
 In this state the **Other** segment is not shown, because there is no total to subtract devices
 from.
+
+## Power Breakdown Card
+
+`custom:power-breakdown-card` charts instantaneous power rather than accumulated energy. It reads
+the **power** entities from the same Energy dashboard configuration — `stat_rate` on each
+individual device, and `stat_rate` or `power_config` on your grid connection — so if you filled in
+the optional power sensor when adding a device, there is nothing else to configure.
+
+- A continuous line over the last *n* hours, with the line and the area beneath it coloured by
+  configurable power thresholds that shade smoothly from one into the next
+- An optional distribution bar showing how the current draw splits across your devices, animated
+  as the readings change
+- A legend of live per-device power beneath it
+- Windows up to 6 hours use the recorder's own history, so short spikes survive; longer windows use
+  five-minute statistics, which are far lighter and outlive the recorder's purge window
+- Missing readings render as a break in the line, not a drop to zero
+
+```yaml
+type: custom:power-breakdown-card
+name: Home power
+icon: mdi:flash
+hours: 3
+thresholds:
+  - value: 0
+    color: "#4caf50"
+  - value: 1500
+    color: "#ffa726"
+  - value: 4000
+    color: "#f44336"
+```
+
+### Power options
+
+| Option | Type | Default | Description |
+| ------ | ---- | ------- | ----------- |
+| `name` | string | — | Optional heading across the top of the card. |
+| `icon` | string | — | Any Home Assistant icon, shown beside the figure. |
+| `hours` | number | `3` | How many hours of history the line covers. |
+| `total_mode` | string | `grid` | `grid`, `home` (grid + solar + battery) or `devices` (sum of devices). |
+| `thresholds` | list | green/amber/red at 0 / 1500 / 4000 W | `value` in watts plus `color`. Colours interpolate between them. |
+| `y_max` | number | fit to the window | Fix the axis maximum in watts. |
+| `show_axes` | boolean | `true` | Axis labels and gridlines. Turn off for a bare sparkline. |
+| `smooth` | boolean | `false` | Join readings with sloped lines instead of steps. |
+| `show_peak` | boolean | `true` | The window's peak, under the current figure. |
+| `show_distribution` | boolean | `true` | The per-device distribution bar. |
+| `show_legend` | boolean | `true` | Live per-device figures under the bar. |
+| `show_other` | boolean | `true` | Show the unaccounted-for remainder in the bar and legend. |
+| `max_devices` | number | `8` | Devices shown individually; the rest fold into **Other**. |
+| `devices` | list | — | Per-device `stat` plus optional `name`, `color`, `hidden`, `power_entity`. |
+
+`power_entity` is only needed for a device with no power sensor set in the Energy dashboard — it
+overrides what the card would otherwise read from there.
+
+The axis fits the window by default, so quiet periods stay legible. Set `y_max` if you would rather
+a given height always meant the same wattage.
 
 ## Development
 

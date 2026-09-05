@@ -1,5 +1,6 @@
-import { CARD_NAME, CARD_VERSION } from "./const";
+import { CARD_NAME, CARD_VERSION, POWER_CARD_NAME } from "./const";
 import "./card";
+import "./power-card";
 
 interface CustomCard {
   type: string;
@@ -11,14 +12,24 @@ interface CustomCard {
 
 const win = window as unknown as { customCards?: CustomCard[] };
 win.customCards = win.customCards || [];
-win.customCards.push({
-  type: CARD_NAME,
-  name: "Energy Breakdown Card",
-  description:
-    "Stacked per-device energy consumption from the Energy dashboard, with day/week/month/year drill-down.",
-  preview: true,
-  documentationURL: "https://github.com/fwhitten/energy-breakdown-card"
-});
+win.customCards.push(
+  {
+    type: CARD_NAME,
+    name: "Energy Breakdown Card",
+    description:
+      "Stacked per-device energy consumption from the Energy dashboard, with day/week/month/year drill-down.",
+    preview: true,
+    documentationURL: "https://github.com/fwhitten/energy-breakdown-card"
+  },
+  {
+    type: POWER_CARD_NAME,
+    name: "Power Breakdown Card",
+    description:
+      "Live power as a threshold-coloured line, with a per-device distribution bar from the Energy dashboard.",
+    preview: true,
+    documentationURL: "https://github.com/fwhitten/energy-breakdown-card#power-breakdown-card"
+  }
+);
 
 /* eslint-disable no-console */
 console.info(

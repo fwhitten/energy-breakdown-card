@@ -21,6 +21,27 @@ export function formatLegendEnergy(value: number, language?: string): string {
   }).format(value);
 }
 
+/**
+ * Watts below a kilowatt, kilowatts above. Watts are whole numbers — nobody
+ * needs a decimal on a 117 W reading — but a sub-watt draw keeps enough
+ * precision not to read as nothing at all.
+ */
+export function formatPower(watts: number | null, language?: string): string {
+  if (watts === null || !Number.isFinite(watts)) return "\u2014";
+  const abs = Math.abs(watts);
+  if (abs < 1000) {
+    const digits = abs === 0 || abs >= 1 ? 0 : 2;
+    return `${new Intl.NumberFormat(language || undefined, {
+      maximumFractionDigits: digits
+    }).format(watts)} W`;
+  }
+  const kw = watts / 1000;
+  const digits = Math.abs(kw) >= 100 ? 0 : Math.abs(kw) >= 10 ? 1 : 2;
+  return `${new Intl.NumberFormat(language || undefined, {
+    maximumFractionDigits: digits
+  }).format(kw)} kW`;
+}
+
 export function formatPercent(value: number): string {
   const rounded = Math.round(value);
   return `${rounded > 0 ? "+" : ""}${rounded}%`;

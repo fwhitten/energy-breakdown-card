@@ -1,0 +1,95 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>power harness</title>
+<style>
+:root{--primary-text-color:#e1e1e1;--secondary-text-color:#9b9b9b;--card-background-color:#1c1c1c;--ha-card-background:#1c1c1c;--secondary-background-color:#282828;--primary-color:#03a9f4;--accent-color:#ff9800;--energy-grid-consumption-color:#488fc2;--divider-color:#444;--error-color:#f44336;--warning-color:#ffa726;}
+ha-card{background:var(--ha-card-background);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.4)}
+body{background:#111;font-family:Roboto,system-ui,sans-serif;padding:16px;margin:0;display:flex;gap:16px;align-items:flex-start;color:var(--primary-text-color)}
+.slot{width:340px}.h280{height:280px}.h220{height:220px}
+.slot>*{height:100%}
+h5{color:#888;font:600 11px/1 sans-serif;margin:0 0 6px}
+#ed{width:380px;background:#1c1c1c;padding:12px;border-radius:12px}
+</style></head><body>
+<div><h5>3h, axes on</h5><div class="slot h280" id="a"></div>
+     <h5 style="margin-top:12px">no axes, smooth</h5><div class="slot h220" id="b"></div></div>
+<div><h5>24h (statistics path)</h5><div class="slot h280" id="c"></div></div>
+<div><h5>editor</h5><div id="ed"></div></div>
+<script type="module">
+customElements.define('ha-card',class extends HTMLElement{});
+customElements.define('ha-icon',class extends HTMLElement{set icon(v){this.textContent='⚡';this.style.fontSize='var(--pbc-icon-size,1.6em)';this.style.lineHeight='1';}});
+customElements.define('ha-form',class extends HTMLElement{connectedCallback(){this.style.display='block';this.style.padding='8px';this.style.color='#666';this.textContent='[ha-form fields]';}});
+
+const DEVICES=[['sensor.lights_energy','sensor.lights_power','Lights'],['sensor.tv_energy','sensor.tv_power','TV'],['sensor.ev_energy','sensor.ev_power','EV Charger']];
+const prefs={
+  energy_sources:[{type:'grid',stat_energy_from:'sensor.grid_in',stat_rate:'sensor.grid_power'}],
+  device_consumption:DEVICES.map(d=>({stat_consumption:d[0],stat_rate:d[1],name:d[2]}))
+};
+function noise(t,seed){return Math.abs(Math.sin(t/9e5+seed)*Math.cos(t/3.1e5+seed*2));}
+// A baseline house load, with the EV charging for part of the window.
+function powerAt(t,entity){
+  const charging=(Math.floor(t/36e5)%5)===2;
+  switch(entity){
+    case 'sensor.lights_power':return 40+noise(t,1)*90;
+    case 'sensor.tv_power':return noise(t,2)>0.6?110:0;
+    case 'sensor.ev_power':return charging?6800+noise(t,3)*250:0;
+    default:{
+      const base=250+noise(t,4)*700;
+      return base+(charging?6900:0)+(noise(t,2)>0.6?110:0);
+    }
+  }
+}
+const states={};
+function refreshStates(now){
+  for(const e of ['sensor.grid_power','sensor.lights_power','sensor.tv_power','sensor.ev_power']){
+    states[e]={state:String(Math.round(powerAt(now,e))),attributes:{unit_of_measurement:'W'}};
+  }
+}
+refreshStates(Date.now());
+
+function makeHass(){return {locale:{language:'en-GB'},themes:{},states,async callWS(msg){
+  if(msg.type==='energy/get_prefs')return prefs;
+  if(msg.type==='history/history_during_period'){
+    const s=new Date(msg.start_time).getTime(),e=new Date(msg.end_time).getTime();
+    const out={};
+    for(const id of msg.entity_ids){out[id]=[];
+      for(let t=s;t<=e;t+=30e3){
+        // A short dropout, to prove gaps render as gaps.
+        const dead=t>s+(e-s)*0.42&&t<s+(e-s)*0.47;
+        out[id].push({s:dead?'unavailable':String(Math.round(powerAt(t,id))),lu:t/1000});
+      }}
+    return out;
+  }
+  if(msg.type==='recorder/statistics_during_period'){
+    const s=new Date(msg.start_time).getTime(),e=new Date(msg.end_time).getTime();
+    const out={};
+    for(const id of msg.statistic_ids){out[id]=[];
+      for(let t=s;t<=e;t+=300e3)out[id].push({start:t,mean:powerAt(t,id)});}
+    return out;
+  }
+  return {};
+}};}
+
+await import('./energy-breakdown-card.js');
+const configs={
+  a:{name:'Home power',hours:3},
+  b:{name:'Bare',hours:3,show_axes:false,smooth:true,show_peak:false},
+  c:{name:'Last 24 hours',hours:24}
+};
+for(const slot of ['a','b','c']){
+  const card=document.createElement('power-breakdown-card');
+  card.setConfig({type:'custom:power-breakdown-card',icon:'mdi:flash',...configs[slot]});
+  card.hass=makeHass();
+  document.getElementById(slot).appendChild(card);
+  window['__'+slot]=card;
+}
+const ed=await customElements.get('power-breakdown-card').getConfigElement();
+ed.hass=makeHass();
+ed.setConfig({type:'custom:power-breakdown-card',icon:'mdi:flash',hours:3});
+document.getElementById('ed').appendChild(ed);
+window.__ed=ed;
+
+// Drive the live values so the distribution bar has something to animate to.
+window.__tick=(offsetHours)=>{
+  refreshStates(Date.now()+(offsetHours||0)*36e5);
+  for(const k of ['a','b','c'])window['__'+k].hass={...makeHass()};
+};
+</script></body></html>
