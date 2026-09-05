@@ -13,6 +13,7 @@ export interface PowerChartOptions {
   yMax?: number;
   showAxes: boolean;
   smooth: boolean;
+  lineWidth: number;
   language?: string;
   /** Unique per card, so several cards on a page do not share a gradient. */
   gradientId: string;
@@ -88,7 +89,13 @@ export function renderPowerChart(opts: PowerChartOptions): TemplateResult {
       ${gridlines}
       ${paths.area ? svg`<path class="area" d=${paths.area} fill=${`url(#${areaId})`} />` : svg``}
       ${paths.line
-        ? svg`<path class="line" d=${paths.line} fill="none" stroke=${`url(#${opts.gradientId})`} />`
+        ? svg`<path
+            class="line"
+            d=${paths.line}
+            fill="none"
+            stroke=${`url(#${opts.gradientId})`}
+            stroke-width=${opts.lineWidth}
+          />`
         : svg``}
       ${xLabels}
     </svg>

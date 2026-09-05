@@ -11,10 +11,22 @@ import {
 
 test("niceMax rounds up to a readable axis maximum", () => {
   assert.equal(niceMax(32), 40);
-  assert.equal(niceMax(41), 80);
   assert.equal(niceMax(0), 4);
   assert.equal(niceMax(-5), 4);
   assert.equal(niceMax(0.9), 1);
+});
+
+test("niceMax does not overshoot a peak that just clears a round number", () => {
+  // The coarse 1/2/5/10 ladder used to send a 205 peak to a 400 axis.
+  for (const peak of [205, 41, 1010, 2.05]) {
+    const max = niceMax(peak);
+    assert.ok(max >= peak, `${max} must contain ${peak}`);
+    assert.ok(max < peak * 1.5, `${max} is too much headroom for ${peak}`);
+  }
+});
+
+test("niceMax leaves a little room above the peak", () => {
+  assert.ok(niceMax(200) > 200, "a peak should not sit exactly on the top gridline");
 });
 
 test("niceMax is always at least the value it must contain", () => {
@@ -82,12 +94,15 @@ test("the plot runs to the right edge of the card", () => {
   assert.equal(padLeft + plotW, 400);
 });
 
-test("the axis inset is only as wide as its labels need", () => {
-  const small = chartLayout(layoutData([1, 2, 3]), 400, 200);
-  const large = chartLayout(layoutData([12000, 20000, 30000]), 400, 200);
-  assert.ok(large.padLeft > small.padLeft, "a wider label needs a wider inset");
-  assert.ok(small.padLeft <= 24, `expected a tight inset, got ${small.padLeft}`);
-  assert.ok(large.padLeft <= 60, "the inset is capped");
+test("the axis inset fits the widest label it has to show", () => {
+  for (const totals of [[1, 2, 3], [12000, 20000, 30000], [0.02, 0.05, 0.09]]) {
+    const layout = chartLayout(layoutData(totals), 400, 200);
+    const widest = Array.from({ length: layout.divisions + 1 }, (_, i) =>
+      formatTick(layout.step * i, layout.step)
+    ).reduce((w, label) => Math.max(w, label.length), 0);
+    assert.ok(layout.padLeft >= widest * 7, `inset ${layout.padLeft} too tight for ${widest} chars`);
+    assert.ok(layout.padLeft <= 60, "the inset is capped");
+  }
 });
 
 test("buckets divide the plot evenly", () => {

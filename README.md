@@ -283,8 +283,10 @@ thresholds:
 | `total_mode` | string | `grid` | `grid`, `home` (grid + solar + battery) or `devices` (sum of devices). |
 | `thresholds` | list | green/amber/red at 0 / 1500 / 4000 W | `value` in watts plus `color`. Colours interpolate between them. |
 | `y_max` | number | fit to the window | Fix the axis maximum in watts. |
-| `show_axes` | boolean | `true` | Axis labels and gridlines. Turn off for a bare sparkline. |
+| `show_axes` | boolean | `true` | Axis labels and gridlines. Turn off for a bare sparkline that runs to the card's edges. |
 | `smooth` | boolean | `false` | Join readings with sloped lines instead of steps. |
+| `line_width` | number | `2.5` | Thickness of the line, in pixels. |
+| `points_per_hour` | number | fit to the card | How many readings the line is drawn from per hour. |
 | `show_peak` | boolean | `true` | The window's peak, under the current figure. |
 | `show_distribution` | boolean | `true` | The per-device distribution bar. |
 | `show_legend` | boolean | `true` | Live per-device figures under the bar. |
@@ -295,8 +297,15 @@ thresholds:
 `power_entity` is only needed for a device with no power sensor set in the Energy dashboard — it
 overrides what the card would otherwise read from there.
 
+With `show_axes: false` the plot runs to the left, right and bottom edges of the card, and the fill
+continues underneath the distribution bar.
+
 The axis fits the window by default, so quiet periods stay legible. Set `y_max` if you would rather
 a given height always meant the same wattage.
+
+`points_per_hour` overrides the default of roughly two readings per pixel — lower it for a coarser,
+blockier trace, raise it for more detail on a wide card. Above six hours the data comes from
+five-minute statistics, so twelve per hour is as fine as it can get however high you set it.
 
 ## Development
 

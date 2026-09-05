@@ -204,10 +204,7 @@ export class PowerBreakdownCard extends LitElement {
       const series = await fetcher(hass, Array.from(new Set(wanted)), start, end);
       if (token !== this._fetchToken) return;
 
-      const buckets = Math.max(
-        24,
-        Math.min(600, Math.round((this._width || 300) / PIXELS_PER_BUCKET))
-      );
+      const buckets = this._bucketCount();
       const bucket = (entity: string) =>
         bucketSamples(series[entity] ?? [], start.getTime(), end.getTime(), buckets);
 
@@ -233,6 +230,19 @@ export class PowerBreakdownCard extends LitElement {
       this._error = err instanceof Error ? err.message : String(err);
       this._loading = false;
     }
+  }
+
+  /**
+   * How many points the line is drawn from. Defaults to about two per pixel;
+   * a configured rate wins, which is how you ask for a coarser or finer trace
+   * than the card's width would give.
+   */
+  private _bucketCount(): number {
+    const perHour = this._config?.points_per_hour;
+    if (perHour && perHour > 0) {
+      return Math.max(2, Math.min(2000, Math.round(this._hours * perHour)));
+    }
+    return Math.max(24, Math.min(600, Math.round((this._width || 300) / PIXELS_PER_BUCKET)));
   }
 
   private _currentTotal(): number | null {
@@ -349,8 +359,17 @@ export class PowerBreakdownCard extends LitElement {
       return html`<div class="chart error"><div class="message">${this._error}</div></div>`;
     }
     const ready = this._width > 0 && this._height > 0 && this._values.length > 0;
+    const config = this._config;
+    const bleed = config?.show_axes === false;
+    const bottom = !bleed
+      ? ""
+      : config?.show_distribution !== false
+        ? "under-bar"
+        : config?.show_legend !== false
+          ? "to-legend"
+          : "to-edge";
     return html`
-      <div class="chart">
+      <div class=${`chart ${bleed ? "bleed" : ""} ${bottom}`}>
         ${ready
           ? renderPowerChart({
               width: this._width,
@@ -362,6 +381,7 @@ export class PowerBreakdownCard extends LitElement {
               yMax: this._config?.y_max,
               showAxes: this._config?.show_axes !== false,
               smooth: this._config?.smooth === true,
+              lineWidth: this._config?.line_width ?? 2.5,
               language: this.hass?.locale?.language,
               gradientId: this._gradientId
             })
@@ -494,6 +514,22 @@ export class PowerBreakdownCard extends LitElement {
     .chart svg {
       display: block;
     }
+    /* Without axes there is nothing to keep clear of, so the plot runs into
+       the card's edges and on under whatever sits below it. */
+    .chart.bleed {
+      margin-left: -16px;
+      margin-right: -16px;
+      width: calc(100% + 32px);
+    }
+    .chart.bleed.under-bar {
+      margin-bottom: -22px;
+    }
+    .chart.bleed.to-legend {
+      margin-bottom: -8px;
+    }
+    .chart.bleed.to-edge {
+      margin-bottom: -24px;
+    }
     .line {
       stroke-width: 2.5;
       stroke-linejoin: round;
@@ -519,6 +555,8 @@ export class PowerBreakdownCard extends LitElement {
       color: var(--error-color, #db4437);
     }
     .distribution {
+      position: relative;
+      z-index: 1;
       flex: 0 0 auto;
       display: flex;
       height: 14px;

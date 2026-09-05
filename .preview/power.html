@@ -11,7 +11,8 @@ h5{color:#888;font:600 11px/1 sans-serif;margin:0 0 6px}
 </style></head><body>
 <div><h5>3h, axes on</h5><div class="slot h280" id="a"></div>
      <h5 style="margin-top:12px">no axes, smooth</h5><div class="slot h220" id="b"></div></div>
-<div><h5>24h (statistics path)</h5><div class="slot h280" id="c"></div></div>
+<div><h5>24h (statistics path)</h5><div class="slot h280" id="c"></div>
+     <h5 style="margin-top:12px">bleed, thick line, 12 pts/h</h5><div class="slot h220" id="d"></div></div>
 <div><h5>editor</h5><div id="ed"></div></div>
 <script type="module">
 customElements.define('ha-card',class extends HTMLElement{});
@@ -32,8 +33,8 @@ function powerAt(t,entity){
     case 'sensor.tv_power':return noise(t,2)>0.6?110:0;
     case 'sensor.ev_power':return charging?6800+noise(t,3)*250:0;
     default:{
-      const base=250+noise(t,4)*700;
-      return base+(charging?6900:0)+(noise(t,2)>0.6?110:0);
+      const base=95+noise(t,4)*95;
+      return base+(charging&&window.__ev?6900:0)+(noise(t,2)>0.6?40:0);
     }
   }
 }
@@ -71,10 +72,11 @@ function makeHass(){return {locale:{language:'en-GB'},themes:{},states,async cal
 await import('./energy-breakdown-card.js');
 const configs={
   a:{name:'Home power',hours:3},
-  b:{name:'Bare',hours:3,show_axes:false,smooth:true,show_peak:false},
+  b:{name:'Bare',hours:3,show_axes:false,show_peak:false,line_width:2},
+  d:{hours:3,show_axes:false,show_peak:false,show_legend:false,line_width:5,points_per_hour:12},
   c:{name:'Last 24 hours',hours:24}
 };
-for(const slot of ['a','b','c']){
+for(const slot of ['a','b','c','d']){
   const card=document.createElement('power-breakdown-card');
   card.setConfig({type:'custom:power-breakdown-card',icon:'mdi:flash',...configs[slot]});
   card.hass=makeHass();
@@ -90,6 +92,6 @@ window.__ed=ed;
 // Drive the live values so the distribution bar has something to animate to.
 window.__tick=(offsetHours)=>{
   refreshStates(Date.now()+(offsetHours||0)*36e5);
-  for(const k of ['a','b','c'])window['__'+k].hass={...makeHass()};
+  for(const k of ['a','b','c','d'])window['__'+k].hass={...makeHass()};
 };
 </script></body></html>

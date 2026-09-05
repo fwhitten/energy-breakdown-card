@@ -271,3 +271,18 @@ test("a step line holds each reading until the next", () => {
   assert.equal((stepped.line.match(/L /g) ?? []).length, 3);
   assert.equal((smooth.line.match(/L /g) ?? []).length, 1);
 });
+
+test("the axis does not overshoot a modest peak", () => {
+  // A 205 W peak used to produce a 400 W axis, leaving half the card empty.
+  const layout = powerLayout([120, 205, 90], 400, 240, { showAxes: true });
+  assert.ok(layout.max >= 205, "the peak must fit");
+  assert.ok(layout.max <= 260, `axis ${layout.max} leaves too much dead space`);
+});
+
+test("the axis still clears the line it contains", () => {
+  for (const peak of [95, 200, 999, 3300, 7400]) {
+    const layout = powerLayout([peak], 400, 240, { showAxes: true });
+    assert.ok(layout.max > peak, `${layout.max} should sit above ${peak}`);
+    assert.ok(layout.max < peak * 1.5, `${layout.max} is too much room above ${peak}`);
+  }
+});

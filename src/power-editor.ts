@@ -21,6 +21,8 @@ const LABELS: Record<string, string> = {
   y_max: "Axis maximum in watts (blank to fit the data)",
   show_axes: "Show axes",
   smooth: "Smooth the line",
+  line_width: "Line width",
+  points_per_hour: "Data points per hour (blank to fit the card)",
   show_peak: "Show the period peak",
   show_distribution: "Show the distribution bar",
   show_legend: "Show legend",
@@ -64,6 +66,14 @@ const SCHEMA = [
     schema: [
       { name: "show_axes", selector: { boolean: {} } },
       { name: "smooth", selector: { boolean: {} } }
+    ]
+  },
+  {
+    type: "grid",
+    name: "",
+    schema: [
+      { name: "line_width", selector: { number: { min: 1, max: 10, step: 0.5, mode: "box" } } },
+      { name: "points_per_hour", selector: { number: { min: 1, max: 720, mode: "box" } } }
     ]
   },
   {
@@ -119,6 +129,7 @@ export class PowerBreakdownCardEditor extends LitElement {
       total_mode: "grid",
       show_axes: true,
       smooth: false,
+      line_width: 2.5,
       show_peak: true,
       show_distribution: true,
       show_legend: true,

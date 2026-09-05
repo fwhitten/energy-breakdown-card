@@ -156,6 +156,8 @@ export interface PowerBreakdownCardConfig {
   thresholds?: Threshold[];
   y_max?: number;
   show_axes?: boolean;
+  line_width?: number;
+  points_per_hour?: number;
   show_distribution?: boolean;
   show_legend?: boolean;
   show_peak?: boolean;
