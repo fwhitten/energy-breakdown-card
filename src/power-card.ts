@@ -569,7 +569,8 @@ export class PowerBreakdownCard extends LitElement {
     }
     .fade-to {
       stop-color: var(--pbc-fade-color, #000);
-      stop-opacity: 0.92;
+      /* Dimmed, not blacked out: the fill should still read underneath. */
+      stop-opacity: var(--pbc-fade-opacity, 0.55);
     }
     .line {
       /* Width comes from the attribute so line_width can set it; a rule here

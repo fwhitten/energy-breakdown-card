@@ -1,6 +1,6 @@
 {
   "name": "energy-breakdown-card",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "description": "Home Assistant Lovelace cards for energy and power breakdown, driven by the Energy dashboard configuration.",
   "type": "module",
   "private": true,
