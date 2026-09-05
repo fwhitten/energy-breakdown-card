@@ -503,7 +503,7 @@ export class EnergyBreakdownCard extends LitElement {
       <div class="legend">
         ${data.series.map(
           (s) => html`
-            <div class="legend-item">
+            <div class=${s.total > 0 ? "legend-item" : "legend-item idle"}>
               <span class="swatch" style=${`background:${s.color}`}></span>
               <span class="legend-name">${s.name}</span>
               <span class="legend-value">${formatLegendEnergy(s.total, this.hass?.locale?.language)}</span>
@@ -590,8 +590,8 @@ export class EnergyBreakdownCard extends LitElement {
       line-height: 1.05;
     }
     .number {
-      font-size: 2.1em;
-      font-weight: 700;
+      font-size: 2.4em;
+      font-weight: 300;
       color: var(--primary-text-color);
     }
     .unit {
@@ -776,7 +776,7 @@ export class EnergyBreakdownCard extends LitElement {
     .swatch {
       width: 9px;
       height: 9px;
-      border-radius: 2px;
+      border-radius: 50%;
       flex: 0 0 auto;
     }
     .legend {
@@ -790,6 +790,10 @@ export class EnergyBreakdownCard extends LitElement {
       display: flex;
       align-items: center;
       gap: 6px;
+    }
+    /* A device that used nothing this period should not compete for attention. */
+    .legend-item.idle {
+      opacity: 0.45;
     }
     .legend-name {
       color: var(--secondary-text-color);

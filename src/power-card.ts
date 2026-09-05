@@ -22,6 +22,9 @@ import { paletteFor } from "./theme";
 import type { EnergyPrefs, HomeAssistant, PowerBreakdownCardConfig, TotalMode } from "./types";
 
 const HISTORY_REFRESH_MS = 60_000;
+/** Card padding, plus a pixel of overhang so no sub-pixel seam shows. */
+const ROOT_PADDING = 16;
+const BLEED_X = ROOT_PADDING + 1;
 /** Roughly two buckets per pixel keeps detail without drawing what cannot be seen. */
 const PIXELS_PER_BUCKET = 2;
 
@@ -45,6 +48,7 @@ export class PowerBreakdownCard extends LitElement {
   @state() private _loading = true;
   @state() private _width = 0;
   @state() private _height = 0;
+  @state() private _bleedBottom = 0;
 
   private _resizeObserver?: ResizeObserver;
   private _timer?: number;
@@ -127,6 +131,7 @@ export class PowerBreakdownCard extends LitElement {
   }
 
   protected override updated(changed: PropertyValues): void {
+    this._measureBleed();
     if (!changed.has("hass") || !this.hass) return;
     const previous = changed.get("hass") as HomeAssistant | undefined;
     if (!previous) void this._load();
@@ -342,6 +347,29 @@ export class PowerBreakdownCard extends LitElement {
     `;
   }
 
+  private get _bleeds(): boolean {
+    return this._config?.show_axes === false;
+  }
+
+  /**
+   * How far the plot has to reach past its own box to meet the bottom of the
+   * card. Measured rather than assumed, because the legend wraps.
+   */
+  private _measureBleed(): void {
+    if (!this._bleeds) {
+      if (this._bleedBottom !== 0) this._bleedBottom = 0;
+      return;
+    }
+    const root = this.renderRoot.querySelector(".root");
+    const chart = this.renderRoot.querySelector(".chart");
+    if (!root || !chart) return;
+    const extra = Math.max(
+      0,
+      Math.round(root.getBoundingClientRect().bottom - chart.getBoundingClientRect().bottom)
+    );
+    if (Math.abs(extra - this._bleedBottom) > 1) this._bleedBottom = extra;
+  }
+
   private _renderPeak(): TemplateResult | typeof nothing {
     if (this._config?.show_peak === false) return nothing;
     const known = this._values.filter((v): v is number => v !== null);
@@ -359,21 +387,17 @@ export class PowerBreakdownCard extends LitElement {
       return html`<div class="chart error"><div class="message">${this._error}</div></div>`;
     }
     const ready = this._width > 0 && this._height > 0 && this._values.length > 0;
-    const config = this._config;
-    const bleed = config?.show_axes === false;
-    const bottom = !bleed
-      ? ""
-      : config?.show_distribution !== false
-        ? "under-bar"
-        : config?.show_legend !== false
-          ? "to-legend"
-          : "to-edge";
+    const bleed = this._bleeds;
+    // The plot is drawn larger than its slot and positioned outside it, so it
+    // reaches the card's edges without disturbing anything around it.
+    const width = this._width + (bleed ? BLEED_X * 2 : 0);
+    const height = this._height + (bleed ? this._bleedBottom : 0);
     return html`
-      <div class=${`chart ${bleed ? "bleed" : ""} ${bottom}`}>
+      <div class=${bleed ? "chart bleed" : "chart"}>
         ${ready
           ? renderPowerChart({
-              width: this._width,
-              height: this._height,
+              width,
+              height,
               values: this._values,
               start: this._windowStart,
               end: this._windowEnd,
@@ -423,7 +447,7 @@ export class PowerBreakdownCard extends LitElement {
       <div class="legend">
         ${segments.map(
           (s) => html`
-            <div class="legend-item">
+            <div class=${s.watts > 0 ? "legend-item" : "legend-item idle"}>
               <span class="swatch" style=${`background:${s.color}`}></span>
               <span class="legend-name">${s.name}</span>
               <span class="legend-value">${formatPower(s.watts, language)}</span>
@@ -441,6 +465,7 @@ export class PowerBreakdownCard extends LitElement {
       box-sizing: border-box;
       height: 100%;
       min-height: var(--pbc-min-height, 200px);
+      --pbc-bleed-x: 17px;
       --pbc-icon-color: var(--primary-text-color);
       --pbc-icon-size: 1.6em;
       --ebc-grid: color-mix(in srgb, var(--secondary-text-color) 45%, transparent);
@@ -494,8 +519,8 @@ export class PowerBreakdownCard extends LitElement {
       margin-top: 0.22em;
     }
     .number {
-      font-size: 2.1em;
-      font-weight: 700;
+      font-size: 2.4em;
+      font-weight: 300;
       line-height: 1.05;
       color: var(--primary-text-color);
       white-space: nowrap;
@@ -514,24 +539,16 @@ export class PowerBreakdownCard extends LitElement {
     .chart svg {
       display: block;
     }
-    /* Without axes there is nothing to keep clear of, so the plot runs into
-       the card's edges and on under whatever sits below it. */
-    .chart.bleed {
-      margin-left: -16px;
-      margin-right: -16px;
-      width: calc(100% + 32px);
-    }
-    .chart.bleed.under-bar {
-      margin-bottom: -22px;
-    }
-    .chart.bleed.to-legend {
-      margin-bottom: -8px;
-    }
-    .chart.bleed.to-edge {
-      margin-bottom: -24px;
+    /* Without axes there is nothing to keep clear of, so the plot runs out to
+       the card's edges and down behind everything below it. */
+    .chart.bleed svg {
+      position: absolute;
+      top: 0;
+      left: calc(-1 * var(--pbc-bleed-x));
     }
     .line {
-      stroke-width: 2.5;
+      /* Width comes from the attribute so line_width can set it; a rule here
+         would override the attribute. */
       stroke-linejoin: round;
       stroke-linecap: round;
     }
@@ -575,6 +592,8 @@ export class PowerBreakdownCard extends LitElement {
       background: transparent;
     }
     .legend {
+      position: relative;
+      z-index: 1;
       flex: 0 0 auto;
       display: flex;
       flex-wrap: wrap;
@@ -585,6 +604,10 @@ export class PowerBreakdownCard extends LitElement {
       display: flex;
       align-items: center;
       gap: 6px;
+    }
+    /* A device drawing nothing right now should not compete for attention. */
+    .legend-item.idle {
+      opacity: 0.45;
     }
     .swatch {
       width: 9px;

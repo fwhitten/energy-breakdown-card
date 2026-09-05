@@ -254,7 +254,7 @@ the optional power sensor when adding a device, there is nothing else to configu
   configurable power thresholds that shade smoothly from one into the next
 - An optional distribution bar showing how the current draw splits across your devices, animated
   as the readings change
-- A legend of live per-device power beneath it
+- A legend of live per-device power beneath it, with idle devices faded back
 - Windows up to 6 hours use the recorder's own history, so short spikes survive; longer windows use
   five-minute statistics, which are far lighter and outlive the recorder's purge window
 - Missing readings render as a break in the line, not a drop to zero
@@ -297,8 +297,8 @@ thresholds:
 `power_entity` is only needed for a device with no power sensor set in the Energy dashboard — it
 overrides what the card would otherwise read from there.
 
-With `show_axes: false` the plot runs to the left, right and bottom edges of the card, and the fill
-continues underneath the distribution bar.
+With `show_axes: false` the plot runs to the left, right and bottom edges of the card, with the
+fill continuing behind the distribution bar and the legend.
 
 The axis fits the window by default, so quiet periods stay legible. Set `y_max` if you would rather
 a given height always meant the same wattage.
